@@ -10,7 +10,9 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SchoolIcon from '@mui/icons-material/School';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import BugReportIcon from '@mui/icons-material/BugReport';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '../../context/AuthContext';
 import './Layout.css';
 import logo from '../../assets/logo.png'
@@ -61,13 +63,13 @@ const Layout = ({ children }) => {
         </div>
         
         <div className="layout__nav-links">
-          <Link to="/dashboard" className="layout__nav-item">
+          <Link to="/dashboard" className={`layout__nav-item ${location.pathname === '/dashboard' ? 'layout__nav-item--active' : ''}`}>
             <DashboardIcon className="layout__nav-icon" />
             {isExpanded && <span className="layout__nav-text">Dashboard</span>}
           </Link>
           
           {isActive ? (
-            <Link to="/learning" className="layout__nav-item">
+            <Link to="/learning" className={`layout__nav-item ${location.pathname === '/learning' ? 'layout__nav-item--active' : ''}`}>
               <SchoolIcon className="layout__nav-icon" />
               {isExpanded && <span className="layout__nav-text">Learning</span>}
             </Link>
@@ -80,25 +82,31 @@ const Layout = ({ children }) => {
             </Tooltip>
           )}
           
-          <Link to="/gpt" className="layout__nav-item">
+          <Link to="/gpt" className={`layout__nav-item ${location.pathname === '/gpt' ? 'layout__nav-item--active' : ''}`}>
             <ChatIcon className="layout__nav-icon" />
             {isExpanded && <span className="layout__nav-text">GPT-4-TURBO</span>}
           </Link>
-          <Link to="/calendar" className="layout__nav-item">
+          <Link to="/calendar" className={`layout__nav-item ${location.pathname === '/calendar' ? 'layout__nav-item--active' : ''}`}>
             <CalendarMonthIcon className="layout__nav-icon" />
             {isExpanded && <span className="layout__nav-text">Calendar</span>}
           </Link>
           
-          <Link to="/stats" className="layout__nav-item">
+          <Link to="/stats" className={`layout__nav-item ${location.pathname === '/stats' ? 'layout__nav-item--active' : ''}`}>
             <AssessmentIcon className="layout__nav-icon" />
             {isExpanded && <span className="layout__nav-text">My Progress</span>}
           </Link>
           
           {isAdmin && (
-            <Link to="/admin-dashboard" className="layout__nav-item">
-              <AdminPanelSettingsIcon className="layout__nav-icon" />
-              {isExpanded && <span className="layout__nav-text">Admin Dashboard</span>}
-            </Link>
+            <>
+              <Link to="/admin-dashboard" className={`layout__nav-item ${location.pathname === '/admin-dashboard' ? 'layout__nav-item--active' : ''}`}>
+                <AdminPanelSettingsIcon className="layout__nav-icon" />
+                {isExpanded && <span className="layout__nav-text">Admin Dashboard</span>}
+              </Link>
+              <Link to="/session-data-tester" className={`layout__nav-item ${location.pathname === '/session-data-tester' ? 'layout__nav-item--active' : ''}`}>
+                <BugReportIcon className="layout__nav-icon" />
+                {isExpanded && <span className="layout__nav-text">Session Data Tester</span>}
+              </Link>
+            </>
           )}
         </div>
 
@@ -107,6 +115,10 @@ const Layout = ({ children }) => {
             <DarkModeIcon className="layout__nav-icon" />
             {isExpanded && <span className="layout__nav-text">Theme</span>}
           </a> */}
+          {/* <Link to="/account" className={`layout__nav-item ${location.pathname === '/account' ? 'layout__nav-item--active' : ''}`}>
+            <PersonIcon className="layout__nav-icon" />
+            {isExpanded && <span className="layout__nav-text">Account</span>}
+          </Link> */}
           <button onClick={handleLogout} className="layout__nav-item layout__logout-btn">
             <LogoutIcon className="layout__nav-icon" />
             {isExpanded && <span className="layout__nav-text">Logout</span>}
