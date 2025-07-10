@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { useNavigate, Link } from 'react-router-dom';
 import pursuitLogo from '../../assets/logo.png';
 import './Workshops.css';
-import '../ApplicantDashboard/ApplicantDashboard.css';
 
 // TEMP: Replace with real user/admin logic
 const isAdmin = false;
@@ -43,10 +42,10 @@ const Workshops = () => {
     useEffect(() => {
         const loadApplicantId = async () => {
             try {
-                const savedUser = localStorage.getItem('user');
-                if (savedUser) {
-                    const userData = JSON.parse(savedUser);
-                    setUser(userData);
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+            const userData = JSON.parse(savedUser);
+            setUser(userData);
                     
                     // Get applicant ID from the database using email
                     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/applications/applicant/by-email/${userData.email}`);
@@ -275,7 +274,7 @@ const Workshops = () => {
                 console.error('Cancel response error:', errorData);
                 throw new Error(errorData.message || `Failed to cancel registration (${response.status})`);
             }
-            
+
             const responseData = await response.json();
             console.log('Cancel response data:', responseData);
             
@@ -360,28 +359,28 @@ const Workshops = () => {
     return (
         <div className="admissions-dashboard">
             {/* Top Bar */}
-            <div className="admissions-topbar">
-                <div className="admissions-topbar-left">
-                    <div className="admissions-logo-section">
-                        <Link to="/apply/dashboard">
-                            <img src={pursuitLogo} alt="Pursuit Logo" className="admissions-logo" />
+            <div className="admissions-dashboard__topbar">
+                <div className="admissions-dashboard__topbar-left">
+                    <div className="admissions-dashboard__logo-section">
+                        <Link to="/apply">
+                            <img src={pursuitLogo} alt="Pursuit Logo" className="admissions-dashboard__logo" />
                         </Link>
-                        <span className="admissions-logo-text">PURSUIT</span>
+                        <span className="admissions-dashboard__logo-text">PURSUIT</span>
                     </div>
-                    <div className="welcome-text">
+                    <div className="admissions-dashboard__welcome-text">
                         Welcome, {user?.firstName || 'John'}!
                     </div>
                 </div>
-                <div className="admissions-topbar-right">
+                <div className="admissions-dashboard__topbar-right">
                     <button 
                         onClick={handleBackToDashboard}
-                        className="admissions-button-secondary"
+                        className="admissions-dashboard__button--secondary"
                     >
                         ← Back to Dashboard
                     </button>
                     <button 
                         onClick={handleLogout}
-                        className="admissions-button-primary"
+                        className="admissions-dashboard__button--primary"
                     >
                         Log Out
                     </button>
@@ -391,9 +390,9 @@ const Workshops = () => {
             {/* Workshops Container */}
             <div className="workshops-main">
                 {/* Title */}
-                <div className="admissions-title-section">
-                    <h1 className="admissions-title">
-                        Select a time slot for your workshop at Pursuit HQ.
+                <div className="admissions-dashboard__title-section">
+                    <h1 className="admissions-dashboard__title">
+                        Select a time slot for your workshop at Pursuit HQ in Long Island City, Queens.
                     </h1>
                 </div>
 
