@@ -7,7 +7,10 @@ import Calendar from './pages/Calendar/Calendar';
 import Learning from './pages/Learning/Learning';
 import PastSession from './pages/PastSession/PastSession';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
-import SessionDataTester from './pages/SessionDataTester';
+import AdmissionsDashboard from './pages/AdmissionsDashboard';
+import ApplicationDetail from './pages/AdmissionsDashboard/ApplicationDetail';
+import Content from './pages/Content';
+import FacilitatorView from './pages/FacilitatorView';
 import Stats from './pages/Stats';
 import Account from './pages/Account/Account';
 import ExpiredTokenModal from './components/ExpiredTokenModal/ExpiredTokenModal';
@@ -154,10 +157,31 @@ function App() {
             </AdminRoute>
           </Layout>
         } />
-        <Route path="/session-data-tester" element={
+        <Route path="/admissions-dashboard" element={
           <Layout>
             <AdminRoute>
-              <SessionDataTester />
+              <AdmissionsDashboard />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/admissions-dashboard/application/:applicationId" element={
+          <Layout>
+            <AdminRoute>
+              <ApplicationDetail />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/content/*" element={
+          <Layout>
+            <AdminRoute>
+              <Content />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/facilitator-view" element={
+          <Layout>
+            <AdminRoute>
+              <FacilitatorView />
             </AdminRoute>
           </Layout>
         } />

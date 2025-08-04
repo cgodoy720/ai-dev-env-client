@@ -167,17 +167,8 @@ const Workshops = () => {
             setRegistrationStatus('success');
             setStatusMessage(`You're registered for the Workshop on ${eventDate} at ${eventTime}!`);
 
-            // Update local status state and localStorage
+            // Update local status state (multiple registrations now allowed)
             setWorkshopStatus('signed-up');
-            if (event) {
-                const eventDetails = {
-                    date: eventDate,
-                    time: eventTime,
-                    location: event.location
-                };
-                localStorage.setItem('workshopStatus', 'signed-up');
-                localStorage.setItem('workshopDetails', JSON.stringify(eventDetails));
-            }
 
             // IMMEDIATE STATE UPDATE - Add the registration to the event in state
             setEvents(prevEvents => 
@@ -249,6 +240,13 @@ const Workshops = () => {
         );
     };
 
+    // Check if an event has already passed
+    const isEventPassed = (event) => {
+        const easternEventTime = getEasternTimeParts(event.start_time);
+        const now = new Date();
+        return easternEventTime && easternEventTime < now;
+    };
+
     // Get registered events
     const registeredEvents = events.filter(event => isUserRegistered(event));
     const availableEvents = events.filter(event => !isUserRegistered(event));
@@ -302,11 +300,19 @@ const Workshops = () => {
             setRegistrationStatus('success');
             setStatusMessage('Registration cancelled successfully.');
             
-            // Clear status and localStorage - workshops remain locked
-            setWorkshopStatus('locked');
-            setWorkshopDetails(null);
-            localStorage.removeItem('workshopStatus');
-            localStorage.removeItem('workshopDetails');
+            // Check if user still has other workshop registrations
+            const remainingRegistrations = events.filter(evt => 
+                evt.event_id !== eventId && 
+                evt.registrations?.some(reg => 
+                    reg.applicant_id === currentApplicantId && 
+                    reg.status !== 'cancelled'
+                )
+            );
+            
+            // Only clear status if no other registrations exist
+            if (remainingRegistrations.length === 0) {
+                setWorkshopStatus('locked');
+            }
 
             // Force refresh to ensure we have the latest data from server
             setTimeout(async () => {
@@ -421,6 +427,7 @@ const Workshops = () => {
                             events.map((event) => {
                                 const isRegistered = isUserRegistered(event);
                                 const isFull = (event.registered_count || 0) >= event.capacity;
+                                const isPassed = isEventPassed(event);
                                 const registration = getUserRegistration(event);
                                 
                                 // Convert UTC times to Eastern Time for display
@@ -434,7 +441,7 @@ const Workshops = () => {
                                 return (
                                     <div 
                                         key={event.event_id} 
-                                        className={`time-slot-card ${isRegistered ? 'selected' : ''} ${isFull && !isRegistered ? 'full' : ''}`}
+                                        className={`time-slot-card ${isRegistered ? 'selected' : ''} ${isFull && !isRegistered ? 'full' : ''} ${isPassed ? 'passed' : ''}`}
                                     >
                                         <div className="time-slot-header">
                                             <div className="date-info">
@@ -453,7 +460,6 @@ const Workshops = () => {
                                         </div>
                                         {isRegistered ? (
                                             <div className="slot-actions registered-actions">
-                                                <div className="selected-indicator">Selected</div>
                                                 <button
                                                     className="cancel-selection-btn"
                                                     onClick={() => handleCancelRegistration(event.event_id, registration?.registration_id)}
@@ -461,16 +467,18 @@ const Workshops = () => {
                                                 >
                                                     {processingEventId === event.event_id ? 'Cancelling...' : 'Cancel'}
                                                 </button>
+                                                <div className="selected-indicator">Reserved</div>
                                             </div>
                                         ) : (
                                             <div className="slot-actions">
                                                 <button
-                                                    className={`select-btn ${isFull ? 'full-btn' : ''}`}
-                                                    onClick={() => !isFull && handleSignUp(event.event_id)}
-                                                    disabled={processingEventId === event.event_id || isFull}
+                                                    className={`select-btn ${isFull ? 'full-btn' : ''} ${isPassed ? 'select-btn--disabled' : ''}`}
+                                                    onClick={() => !isFull && !isPassed && handleSignUp(event.event_id)}
+                                                    disabled={processingEventId === event.event_id || isFull || isPassed}
                                                 >
-                                                    {isFull ? 'Full' : 
-                                                     processingEventId === event.event_id ? 'Selecting...' : 'Select'}
+                                                    {isPassed ? 'Event Passed' :
+                                                     isFull ? 'Full' : 
+                                                     processingEventId === event.event_id ? 'Reserving...' : 'Reserve'}
                                                 </button>
                                             </div>
                                         )}
