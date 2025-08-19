@@ -167,18 +167,38 @@ function ApplicantDashboard() {
       const events = await response.json();
       let foundRegistration = null;
       let registeredEvent = null;
+      let hasAttendedSession = false;
       
-      // Check all events for current user's registration
+      // First check if the user has attended any info session
       for (const event of events) {
         const registrations = event.registrations || [];
-        const userRegistration = registrations.find(reg => 
-          reg.applicant_id === currentApplicantId && reg.status === 'registered'
+        const attendedRegistration = registrations.find(reg => 
+          reg.applicant_id === currentApplicantId && 
+          (reg.status === 'attended' || reg.status === 'attended_late' || reg.status === 'very_late')
         );
         
-        if (userRegistration) {
-          foundRegistration = userRegistration;
+        if (attendedRegistration) {
+          foundRegistration = attendedRegistration;
           registeredEvent = event;
+          hasAttendedSession = true;
+          console.log('Dashboard: Found attended info session', attendedRegistration);
           break;
+        }
+      }
+      
+      // If no attended session found, check for registered sessions
+      if (!hasAttendedSession) {
+        for (const event of events) {
+          const registrations = event.registrations || [];
+          const userRegistration = registrations.find(reg => 
+            reg.applicant_id === currentApplicantId && reg.status === 'registered'
+          );
+          
+          if (userRegistration) {
+            foundRegistration = userRegistration;
+            registeredEvent = event;
+            break;
+          }
         }
       }
       
@@ -198,9 +218,13 @@ function ApplicantDashboard() {
           location: registeredEvent.location
         };
         
-        setStatuses(prev => ({ ...prev, infoSession: 'signed-up' }));
+        // Set status based on whether they've attended or just registered
+        setStatuses(prev => ({ 
+          ...prev, 
+          infoSession: hasAttendedSession ? 'attended' : 'signed-up' 
+        }));
         setSessionDetails(eventDetails);
-        console.log('Dashboard: Found info session registration', eventDetails);
+        console.log(`Dashboard: Found info session ${hasAttendedSession ? 'attendance' : 'registration'}`, eventDetails);
       } else {
         setStatuses(prev => ({ ...prev, infoSession: 'not signed-up' }));
         setSessionDetails(null);
@@ -421,12 +445,14 @@ function ApplicantDashboard() {
     return section.buttonEnabled(statuses[section.key])
   }
 
-  const getButtonStyle = (enabled, isLockedState = false, isIneligibleState = false, isSubmittedState = false) => ({
-    background: isSubmittedState ? '#48bb78' :
+  const getButtonStyle = (enabled, isLockedState = false, isIneligibleState = false, isSubmittedState = false, isCompletedState = false) => ({
+    background: isCompletedState ? '#48bb78' :
+                isSubmittedState ? '#48bb78' :
                 enabled ? 'var(--color-primary)' : 
                 isIneligibleState ? 'var(--color-background-darker)' : 
                 isLockedState ? '#f5f5f5' : 'var(--color-border)',
-    color: isSubmittedState ? '#fff' :
+    color: isCompletedState ? '#fff' :
+           isSubmittedState ? '#fff' :
            enabled ? '#fff' : 
            isIneligibleState ? 'var(--color-text-secondary)' :
            isLockedState ? '#999' : 'var(--color-text-muted)',
@@ -527,27 +553,19 @@ function ApplicantDashboard() {
         return;
       }
 
-      // Reset eligibility status
-      const result = await databaseService.resetEligibility(applicantId);
+      // Set flag for ApplicationForm to handle the reset synchronously
+      localStorage.setItem('eligibilityResetForEditing', 'true');
+      console.log('🚀 DASHBOARD DEBUG: Set eligibilityResetForEditing flag to true');
       
-      if (result.success) {
-        // Update local state
-        setStatuses(prev => ({
-          ...prev,
-          application: 'in process'
-        }));
-        localStorage.setItem('applicationStatus', 'in process');
-        
-        // Set flag to navigate to eligibility section
-        localStorage.setItem('eligibilityResetForEditing', 'true');
-        
-        alert('Your eligibility status has been reset. You can now edit your responses.');
-        
-        // Navigate to application form
-        navigate('/application-form');
-      } else {
-        alert('Failed to reset eligibility status. Please try again.');
-      }
+      // Update local state optimistically
+      setStatuses(prev => ({
+        ...prev,
+        application: 'in process'
+      }));
+      
+      // Navigate to application form with a URL parameter to ensure the reset flag is preserved
+      console.log('🚀 DASHBOARD DEBUG: Navigating to application form with reset parameter...');
+      navigate('/application-form?resetEligibility=true');
     } catch (error) {
       console.error('Error resetting eligibility:', error);
       alert('An error occurred while resetting your eligibility. Please try again.');
@@ -673,9 +691,14 @@ function ApplicantDashboard() {
                   )}
                   
 
-                  {section.key === 'infoSession' && status === 'signed-up' && sessionDetails && (
+                  {section.key === 'infoSession' && (status === 'signed-up' || status === 'attended') && sessionDetails && (
                     <div className="session-details__container">
                       {getSessionDetailsText()}
+                      {status === 'attended' && (
+                        <div className="session-details__attended-badge">
+                          ✅ Attended
+                        </div>
+                      )}
                     </div>
                   )}
                   
@@ -740,7 +763,14 @@ function ApplicantDashboard() {
                             section.key === 'pledge' ? '/pledge' : '#') : '#'} 
                           className="action-card__button-link">
                       <button
-                        style={getButtonStyle(enabled, false, false, section.key === 'application' && status === 'submitted')}
+                        style={getButtonStyle(
+                          enabled, 
+                          false, 
+                          false, 
+                          section.key === 'application' && status === 'submitted',
+                          (section.key === 'infoSession' && status === 'attended') || 
+                          (section.key === 'workshop' && status === 'attended')
+                        )}
                         disabled={!enabled}
                       >
                         {section.getButtonLabel(status)}

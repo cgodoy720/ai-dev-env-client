@@ -683,6 +683,24 @@
 .learning__message--assistant {
   margin-right: auto;
   margin-left: 0;
+  padding-left: 40px;
+  position: relative;
+}
+
+/* Add the avatar for assistant messages */
+.learning__message--assistant::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background-color: var(--color-primary);
+  border-radius: 4px;
+  background-image: url("/logo.png");
+  background-size: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .learning__message-content {
@@ -995,14 +1013,33 @@
 .past-session .learning__task-title {
   color: var(--color-text-light, #ffffff);
   font-weight: 500;
-  display: -webkit-box;
-  -webkit-line-clamp: 2; /* Limit to 2 lines */
-  -webkit-box-orient: vertical;
+  display: flex;
+  align-items: center;
   overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 100%;
   white-space: normal; /* Allow text to wrap */
   line-height: 1.3;
+  gap: 6px;
+}
+
+.past-session .learning__task-title-text {
+  flex: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.3;
+}
+
+.past-session .learning__task-deliverable-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-left: 6px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 1px;
 }
 
 /* Improve task icons visibility */

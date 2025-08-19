@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { FaCheckCircle, FaUsers, FaBook, FaArrowLeft, FaArrowRight, FaCalendarAlt, FaPaperPlane, FaCheck, FaTimes, FaLink, FaExternalLinkAlt, FaFileAlt, FaVideo, FaBars } from 'react-icons/fa';
+import { FaCheckCircle, FaUsers, FaBook, FaArrowLeft, FaArrowRight, FaCalendarAlt, FaPaperPlane, FaCheck, FaTimes, FaLink, FaExternalLinkAlt, FaFileAlt, FaVideo, FaBars, FaBrain, FaComments } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../context/AuthContext';
 import PeerFeedbackForm from '../../components/PeerFeedbackForm';
 import TaskSubmission from '../../components/TaskSubmission/TaskSubmission';
 import AnalysisModal from '../../components/AnalysisModal/AnalysisModal';
 import SummaryModal from '../../components/SummaryModal/SummaryModal';
 import './PastSession.css';
+import '../../styles/smart-tasks.css';
 
 function PastSession() {
   const [searchParams] = useSearchParams();
@@ -132,9 +134,16 @@ function PastSession() {
         // Set day schedule data
         setDaySchedule(data);
         
-        // Set tasks data directly from the response
+        // Set tasks data from the response, ensuring task_mode is set
         if (data.flattenedTasks && Array.isArray(data.flattenedTasks)) {
-          setTasks(data.flattenedTasks);
+          // Process flattened tasks to ensure task_mode is set
+          const processedTasks = data.flattenedTasks.map(task => ({
+            ...task,
+            task_mode: task.task_mode || 'basic' // Ensure task_mode is set
+          }));
+          console.log('Processed flattenedTasks with task_mode:', 
+            processedTasks.map(t => ({ id: t.id, title: t.title, task_mode: t.task_mode })));
+          setTasks(processedTasks);
           setTasksLoading(false);
         } else {
           // Fallback to processing from timeBlocks if needed
@@ -182,6 +191,18 @@ function PastSession() {
               }
             }
             
+            // Debug: Log the task data to see what we're getting
+            console.log('Processing task:', {
+              id: task.task_id || task.id,
+              title: task.task_title || task.title,
+              task_mode: task.task_mode,
+              raw_task: task
+            });
+            
+            // Ensure task_mode is properly set
+            const taskMode = task.task_mode || 'basic';
+            console.log(`Setting task_mode for task ${task.task_id || task.id} to: ${taskMode}`);
+            
             allTasks.push({
               id: task.task_id || task.id,
               title: task.task_title || task.title,
@@ -201,11 +222,21 @@ function PastSession() {
               deliverable_type: task.deliverable_type || 'none',
               should_analyze: task.should_analyze || false,
               analyze_deliverable: task.analyze_deliverable || false,
-              analyze_conversation: task.analyze_conversation || false
+              analyze_conversation: task.analyze_conversation || false,
+              task_mode: taskMode, // Explicitly set task mode
+              smart_prompt: task.smart_prompt || null,
+              conversation_model: task.conversation_model || null
             });
           });
         }
       });
+      
+      // Debug: Log the final tasks array
+      console.log('Final tasks array:', allTasks.map(t => ({ 
+        id: t.id, 
+        title: t.title, 
+        task_mode: t.task_mode 
+      })));
       
       setTasks(allTasks);
       setTasksLoading(false);
@@ -477,7 +508,17 @@ function PastSession() {
     navigate('/calendar');
   };
 
-  const getTaskIcon = (type) => {
+  const getTaskIcon = (type, taskMode) => {
+    // Ensure task_mode has a value (default to 'basic')
+    const mode = taskMode || 'basic';
+    console.log('getTaskIcon called with:', { type, taskMode, normalizedMode: mode });
+    
+    // Check if this is a conversation task - use brain icon
+    if (mode === 'conversation') {
+      console.log('Returning brain icon for conversation task');
+      return <FaBrain className="task-icon conversation" />;
+    }
+    
     // Special case for Independent Retrospective
     if (type === 'reflect' && tasks.length > 0 && 
         currentTaskIndex < tasks.length &&
@@ -734,16 +775,95 @@ function PastSession() {
     );
   };
 
-  // Add a format function for message content
+  // Add a format function for message content with markdown support
   const formatMessageContent = (content) => {
-    // Basic formatting for message content
-    // You can enhance this with markdown parsing if needed
+    if (!content) return null;
+    
+    // Check if content is an object and not a string
+    if (typeof content === 'object') {
+      // Convert the object to a readable string format
+      try {
+        return <pre className="system-message">System message: {JSON.stringify(content, null, 2)}</pre>;
+      } catch (e) {
+        console.error('Error stringifying content object:', e);
+        return <p className="error-message">Error displaying message content</p>;
+      }
+    }
+    
+    // Split content by code blocks to handle them separately
+    const parts = content.split(/(```[\s\S]*?```)/g);
+    
     return (
-      <div className="past-session__message-text">
-        {content.split('\n').map((line, i) => (
-          <p key={i}>{line}</p>
-        ))}
-      </div>
+      <>
+        {parts.map((part, index) => {
+          // Check if this part is a code block
+          if (part.startsWith('```') && part.endsWith('```')) {
+            // Extract language and code
+            const match = part.match(/```(\w*)\n([\s\S]*?)```/);
+            
+            if (match) {
+              const [, language, code] = match;
+              
+              return (
+                <div key={index} className="code-block-wrapper">
+                  <div className="code-block-header">
+                    {language && <span className="code-language">{language}</span>}
+                  </div>
+                  <pre className="code-block">
+                    <code>{code}</code>
+                  </pre>
+                </div>
+              );
+            }
+          }
+          
+          // Regular markdown for non-code parts
+          return (
+            <ReactMarkdown key={index}
+              components={{
+                p: ({node, children, ...props}) => (
+                  <p className="markdown-paragraph" {...props}>{children}</p>
+                ),
+                h1: ({node, children, ...props}) => (
+                  <h1 className="markdown-heading" {...props}>{children}</h1>
+                ),
+                h2: ({node, children, ...props}) => (
+                  <h2 className="markdown-heading" {...props}>{children}</h2>
+                ),
+                h3: ({node, children, ...props}) => (
+                  <h3 className="markdown-heading" {...props}>{children}</h3>
+                ),
+                ul: ({node, children, ...props}) => (
+                  <ul className="markdown-list" {...props}>{children}</ul>
+                ),
+                ol: ({node, children, ...props}) => (
+                  <ol className="markdown-list" {...props}>{children}</ol>
+                ),
+                li: ({node, children, ...props}) => (
+                  <li className="markdown-list-item" {...props}>{children}</li>
+                ),
+                a: ({node, children, ...props}) => (
+                  <a className="markdown-link" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>
+                ),
+                strong: ({node, children, ...props}) => (
+                  <strong {...props}>{children}</strong>
+                ),
+                em: ({node, children, ...props}) => (
+                  <em {...props}>{children}</em>
+                ),
+                code: ({node, inline, className, children, ...props}) => {
+                  if (inline) {
+                    return <code className="inline-code" {...props}>{children}</code>;
+                  }
+                  return <code {...props}>{children}</code>;
+                }
+              }}
+            >
+              {part}
+            </ReactMarkdown>
+          );
+        })}
+      </>
     );
   };
 
@@ -1443,7 +1563,7 @@ function PastSession() {
     return (
       <div className="learning past-session">
         <div className="learning__content">
-          <div className="learning__chat-container">
+          <div className={`learning__chat-container ${currentTaskIndex < tasks.length ? `learning__chat-container--${tasks[currentTaskIndex].task_mode || 'basic'}` : ''}`}>
             <div className="learning__loading">
               <p>Loading session details...</p>
             </div>
@@ -1457,7 +1577,7 @@ function PastSession() {
     return (
       <div className="learning past-session">
         <div className="learning__content">
-          <div className="learning__chat-container">
+          <div className={`learning__chat-container ${currentTaskIndex < tasks.length ? `learning__chat-container--${tasks[currentTaskIndex].task_mode || 'basic'}` : ''}`}>
             <div className="learning__error">
               <h2>Error</h2>
               <p>{error || 'Unable to load session details'}</p>
@@ -1510,6 +1630,7 @@ function PastSession() {
                 <div
                   key={task.id}
                   className={`learning__task-item ${index === currentTaskIndex ? 'current' : ''}`}
+                  data-mode={task.task_mode || 'basic'}
                   onClick={() => {
                     if (index !== currentTaskIndex) {
                       // Update the task index
@@ -1529,10 +1650,22 @@ function PastSession() {
                   }}
                 >
                   <div className="learning__task-icon">
-                    {getTaskIcon(task.type)}
+                    {getTaskIcon(task.type, task.task_mode)}
                   </div>
                   <div className="learning__task-content">
-                    <h3 className="learning__task-title">{task.title}</h3>
+                    <h3 className="learning__task-title">
+                      <span className="learning__task-title-text">{task.title}</span>
+
+                      {(task.deliverable_type === 'link' || 
+                        task.deliverable_type === 'file' || 
+                        task.deliverable_type === 'document' || 
+                        task.deliverable_type === 'video') && (
+                        <span className="learning__task-deliverable-indicator">
+                          <FaLink />
+                        </span>
+                      )}
+                    </h3>
+
                   </div>
                 </div>
               ))}
@@ -1575,7 +1708,7 @@ function PastSession() {
           </button>
         </div>
         
-        <div className="learning__chat-container">
+        <div className={`learning__chat-container ${currentTaskIndex < tasks.length ? `learning__chat-container--${tasks[currentTaskIndex].task_mode}` : ''}`}>
           {showPeerFeedback ? (
             // Show the peer feedback form when needed
             <PeerFeedbackForm

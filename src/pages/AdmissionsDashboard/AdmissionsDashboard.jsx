@@ -30,12 +30,16 @@ const AdmissionsDashboard = () => {
 
     // Pagination and filters
     const [applicationFilters, setApplicationFilters] = useState({
+        status: '',
+        info_session_status: '',
         workshop_status: '',
         program_admission_status: '',
+        ready_for_workshop_invitation: false,
+        name_search: '',
         limit: 50,
         offset: 0
     });
-    const [nameSearch, setNameSearch] = useState('');
+    const [nameSearchInput, setNameSearchInput] = useState('');
     const [columnSort, setColumnSort] = useState({
         column: 'created_at',
         direction: 'desc' // 'asc' or 'desc'
@@ -84,6 +88,16 @@ const AdmissionsDashboard = () => {
     const [selectedApplicants, setSelectedApplicants] = useState([]);
     const [bulkActionsModalOpen, setBulkActionsModalOpen] = useState(false);
     const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
+
+    // Manual registration state
+    const [addRegistrationModalOpen, setAddRegistrationModalOpen] = useState(false);
+    const [selectedEventForRegistration, setSelectedEventForRegistration] = useState(null);
+    const [selectedEventType, setSelectedEventType] = useState(null);
+    const [applicantSearch, setApplicantSearch] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [selectedApplicantsForRegistration, setSelectedApplicantsForRegistration] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [registrationLoading, setRegistrationLoading] = useState(false);
 
     // Check if user has admin access
     const hasAdminAccess = user?.role === 'admin' || user?.role === 'staff';
@@ -151,10 +165,13 @@ const AdmissionsDashboard = () => {
             setLoading(true);
             const params = new URLSearchParams();
             if (applicationFilters.status) params.append('status', applicationFilters.status);
+            if (applicationFilters.info_session_status) params.append('info_session_status', applicationFilters.info_session_status);
             if (applicationFilters.recommendation) params.append('recommendation', applicationFilters.recommendation);
             if (applicationFilters.final_status) params.append('final_status', applicationFilters.final_status);
             if (applicationFilters.workshop_status) params.append('workshop_status', applicationFilters.workshop_status);
             if (applicationFilters.program_admission_status) params.append('program_admission_status', applicationFilters.program_admission_status);
+            if (applicationFilters.ready_for_workshop_invitation) params.append('ready_for_workshop_invitation', 'true');
+            if (applicationFilters.name_search) params.append('name_search', applicationFilters.name_search);
             params.append('limit', applicationFilters.limit);
             params.append('offset', applicationFilters.offset);
 
@@ -221,6 +238,19 @@ const AdmissionsDashboard = () => {
             setLoading(false);
         }
     };
+
+    // Debounce name search input
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setApplicationFilters(prev => ({
+                ...prev,
+                name_search: nameSearchInput,
+                offset: 0 // Reset to first page when search changes
+            }));
+        }, 500); // 500ms delay
+
+        return () => clearTimeout(timeoutId);
+    }, [nameSearchInput]);
 
     // Load data on mount and when filters change
     useEffect(() => {
@@ -347,18 +377,11 @@ const AdmissionsDashboard = () => {
         }));
     };
 
-    // Sort and filter applications
+    // Sort applications (name filtering is now handled server-side)
     const sortAndFilterApplications = (apps) => {
         if (!apps || !Array.isArray(apps)) return apps;
 
         let filteredApps = [...apps];
-
-        // Apply name search filter
-        if (nameSearch) {
-            filteredApps = filteredApps.filter(app =>
-                `${app.first_name} ${app.last_name}`.toLowerCase().includes(nameSearch.toLowerCase())
-            );
-        }
 
         // Apply sorting
         return filteredApps.sort((a, b) => {
@@ -515,6 +538,133 @@ const AdmissionsDashboard = () => {
 
         const phoneList = phoneNumbers.join(', ');
         copyToClipboard(phoneList, `${phoneNumbers.length} phone numbers`);
+    };
+    
+    // Handle CSV export for selected applicants
+    const handleExportCSV = async () => {
+        if (selectedApplicants.length === 0) return;
+        
+        try {
+            setLoading(true);
+            
+            // Get the full details of selected applicants including demographic data
+            const selectedApplicantIds = selectedApplicants.join(',');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions/applicants/export?ids=${selectedApplicantIds}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch detailed applicant data');
+            }
+            
+            const detailedApplicantData = await response.json();
+            
+            if (!detailedApplicantData || detailedApplicantData.length === 0) {
+                console.error('No data found for selected applicants');
+                setError('No data found for selected applicants');
+                return;
+            }
+            
+            // Debug: Log the data we're getting from the API
+            console.log('Detailed applicant data:', detailedApplicantData);
+            
+            // Check if we have demographic data
+            const hasDemographics = detailedApplicantData.some(app => 
+                app.demographics && Object.keys(app.demographics).some(key => app.demographics[key])
+            );
+            console.log('Has any demographic data:', hasDemographics);
+            
+            if (detailedApplicantData.length > 0) {
+                console.log('First applicant demographics:', detailedApplicantData[0].demographics);
+            }
+            
+            // Define CSV headers based on available data
+            const headers = [
+                'Applicant ID',
+                'First Name',
+                'Last Name',
+                'Email',
+                'Phone Number',
+                'Application Status',
+                'Assessment',
+                'Info Session Status',
+                'Workshop Status',
+                'Program Admission Status',
+                'Date of Birth',
+                'Address',
+                'Gender',
+                'Personal Annual Income',
+                'Educational Attainment',
+                'First-Generation College Student',
+                'Race/Ethnicity',
+                'English as Secondary Language',
+                'Born Outside US',
+                'Parents Born Outside US',
+                'Government Assistance',
+                'Veteran Status',
+                'Communities',
+                'Employment Status',
+                'Reason for Applying'
+            ];
+            
+            // Create CSV content
+            let csvContent = headers.join(',') + '\n';
+            
+            // Add data rows
+            detailedApplicantData.forEach(applicant => {
+                // Extract demographic data - safely handle missing fields
+                const demographics = applicant.demographics || {};
+                
+                const row = [
+                    applicant.applicant_id,
+                    `"${(applicant.first_name || '').replace(/"/g, '""')}"`, // Escape quotes in CSV
+                    `"${(applicant.last_name || '').replace(/"/g, '""')}"`,
+                    `"${(applicant.email || '').replace(/"/g, '""')}"`,
+                    `"${(applicant.phone_number || '').replace(/"/g, '""')}"`,
+                    `"${(applicant.status || '').replace(/"/g, '""')}"`,
+                    `"${(applicant.final_status || applicant.recommendation || '').replace(/"/g, '""')}"`,
+                    `"${(applicant.info_session_status || 'not_registered').replace(/"/g, '""')}"`,
+                    `"${(applicant.workshop_status || 'pending').replace(/"/g, '""')}"`,
+                    `"${(applicant.program_admission_status || 'pending').replace(/"/g, '""')}"`,
+                    `"${(demographics.date_of_birth || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.address || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.gender || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.personal_income || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.education_level || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.first_gen_college || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.race_ethnicity || '').replace(/"/g, '""').replace(/[\[\]]/g, '')}"`,
+                    `"${(demographics.english_secondary || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.born_outside_us || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.parents_born_outside_us || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.govt_assistance || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.veteran || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.communities || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.employment_status || '').replace(/"/g, '""')}"`,
+                    `"${(demographics.reason_for_applying || '').replace(/"/g, '""')}"`
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+            
+            // Create a blob and download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `applicants_export_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+        } catch (error) {
+            console.error('Error exporting CSV:', error);
+            setError('Failed to export CSV. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Info session modal management
@@ -823,6 +973,189 @@ const AdmissionsDashboard = () => {
         }
     };
 
+    // Manual Registration Handlers
+    
+    // Open add registration modal
+    const openAddRegistrationModal = (eventId, eventType) => {
+        setSelectedEventForRegistration(eventId);
+        setSelectedEventType(eventType);
+        setAddRegistrationModalOpen(true);
+        setApplicantSearch('');
+        setSearchResults([]);
+        setSelectedApplicantsForRegistration([]);
+    };
+
+    // Close add registration modal
+    const closeAddRegistrationModal = () => {
+        setAddRegistrationModalOpen(false);
+        setSelectedEventForRegistration(null);
+        setSelectedEventType(null);
+        setApplicantSearch('');
+        setSearchResults([]);
+        setSelectedApplicantsForRegistration([]);
+    };
+
+    // Search for applicants
+    const searchApplicants = async (searchTerm) => {
+        if (!searchTerm.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        setSearchLoading(true);
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions/applicants/search?q=${encodeURIComponent(searchTerm)}&eventId=${selectedEventForRegistration}&eventType=${selectedEventType}&limit=20`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setSearchResults(data.applicants || []);
+            } else {
+                console.error('Failed to search applicants');
+                setSearchResults([]);
+            }
+        } catch (error) {
+            console.error('Error searching applicants:', error);
+            setSearchResults([]);
+        } finally {
+            setSearchLoading(false);
+        }
+    };
+
+    // Handle applicant selection for registration
+    const toggleApplicantSelection = (applicant) => {
+        setSelectedApplicantsForRegistration(prev => {
+            const isSelected = prev.some(selected => selected.applicant_id === applicant.applicant_id);
+            if (isSelected) {
+                return prev.filter(selected => selected.applicant_id !== applicant.applicant_id);
+            } else {
+                return [...prev, applicant];
+            }
+        });
+    };
+
+    // Register selected applicants
+    const registerSelectedApplicants = async () => {
+        if (selectedApplicantsForRegistration.length === 0) return;
+
+        setRegistrationLoading(true);
+        const results = [];
+
+        try {
+            for (const applicant of selectedApplicantsForRegistration) {
+                try {
+                    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions/events/${selectedEventType}/${selectedEventForRegistration}/register-applicant`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            applicantId: applicant.applicant_id,
+                            name: applicant.display_name,
+                            email: applicant.email,
+                            needsLaptop: false // Default to false, can be changed later
+                        })
+                    });
+
+                    if (response.ok) {
+                        results.push({ applicant, success: true });
+                    } else {
+                        const errorData = await response.json();
+                        results.push({ applicant, success: false, error: errorData.error });
+                    }
+                } catch (error) {
+                    results.push({ applicant, success: false, error: error.message });
+                }
+            }
+
+            // Show results and refresh data
+            const successCount = results.filter(r => r.success).length;
+            const failureCount = results.length - successCount;
+
+            if (successCount > 0) {
+                // Refresh event registrations to show new registrations
+                if (selectedEvent === selectedEventForRegistration) {
+                    await handleViewRegistrations(selectedEventType, selectedEventForRegistration);
+                }
+                // Refresh events list to update counts
+                if (selectedEventType === 'info-session') {
+                    await fetchInfoSessions();
+                } else {
+                    await fetchWorkshops();
+                }
+            }
+
+            if (failureCount > 0) {
+                const failureMessages = results.filter(r => !r.success).map(r => `${r.applicant.display_name}: ${r.error}`).join('\n');
+                setError(`Some registrations failed:\n${failureMessages}`);
+            }
+
+            if (successCount === results.length) {
+                closeAddRegistrationModal();
+            }
+
+        } catch (error) {
+            console.error('Error registering applicants:', error);
+            setError('Failed to register applicants. Please try again.');
+        } finally {
+            setRegistrationLoading(false);
+        }
+    };
+
+    // Remove/cancel a registration
+    const handleRemoveRegistration = async (eventType, eventId, registrationId, applicantName) => {
+        if (!confirm(`Are you sure you want to cancel ${applicantName}'s registration?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions/events/${eventType}/${eventId}/registrations/${registrationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                // Remove the registration from local state
+                setEventRegistrations(prev => 
+                    prev.filter(reg => reg.registration_id !== registrationId)
+                );
+
+                // Update event counts
+                if (eventType === 'info-session') {
+                    setInfoSessions(prevSessions =>
+                        prevSessions.map(session =>
+                            session.event_id === eventId
+                                ? { ...session, registration_count: session.registration_count - 1 }
+                                : session
+                        )
+                    );
+                } else if (eventType === 'workshop') {
+                    setWorkshops(prevWorkshops =>
+                        prevWorkshops.map(workshop =>
+                            workshop.event_id === eventId
+                                ? { ...workshop, registration_count: workshop.registration_count - 1 }
+                                : workshop
+                        )
+                    );
+                }
+            } else {
+                const errorData = await response.json();
+                setError(`Failed to cancel registration: ${errorData.error}`);
+            }
+        } catch (error) {
+            console.error('Error cancelling registration:', error);
+            setError('Failed to cancel registration. Please try again.');
+        }
+    };
+
     // Loading state
     if (loading) {
         return (
@@ -1030,15 +1363,37 @@ const AdmissionsDashboard = () => {
                 {activeTab === 'applications' && (
                     <div className="admissions-dashboard__applications">
                         <div className="data-section__header">
-                            <h2>Applicant Management</h2>
                             <div className="data-section__controls">
                                 <input
                                     type="text"
                                     placeholder="Search by name..."
-                                    value={nameSearch}
-                                    onChange={(e) => setNameSearch(e.target.value)}
+                                    value={nameSearchInput}
+                                    onChange={(e) => setNameSearchInput(e.target.value)}
                                     className="name-search-input"
                                 />
+                                <select
+                                    value={applicationFilters.status || ''}
+                                    onChange={(e) => setApplicationFilters({ ...applicationFilters, status: e.target.value })}
+                                    className="filter-select"
+                                >
+                                    <option value="">Application Status: All</option>
+                                    <option value="submitted">Submitted</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="ineligible">Ineligible</option>
+                                </select>
+                                <select
+                                    value={applicationFilters.info_session_status || ''}
+                                    onChange={(e) => setApplicationFilters({ ...applicationFilters, info_session_status: e.target.value })}
+                                    className="filter-select"
+                                >
+                                    <option value="">Info Session: All</option>
+                                    <option value="not_registered">Not Registered</option>
+                                    <option value="registered">Registered</option>
+                                    <option value="attended">Attended</option>
+                                    <option value="attended_late">Attended Late</option>
+                                    <option value="very_late">Very Late</option>
+                                    <option value="no_show">No Show</option>
+                                </select>
                                 <select
                                     value={applicationFilters.workshop_status || ''}
                                     onChange={(e) => setApplicationFilters({ ...applicationFilters, workshop_status: e.target.value })}
@@ -1064,11 +1419,28 @@ const AdmissionsDashboard = () => {
                                     <option value="deferred">Deferred</option>
                                 </select>
                                 <button
+                                    className={`filter-toggle-btn ${applicationFilters.ready_for_workshop_invitation ? 'filter-toggle-btn--active' : ''}`}
+                                    onClick={() => setApplicationFilters({ ...applicationFilters, ready_for_workshop_invitation: !applicationFilters.ready_for_workshop_invitation })}
+                                    type="button"
+                                >
+                                    <span className="filter-toggle-btn__icon">
+                                        {applicationFilters.ready_for_workshop_invitation ? '✓' : '○'}
+                                    </span>
+                                    Ready for Workshop Invitation
+                                </button>
+                                <button
                                     className="admissions-dashboard__bulk-actions-btn"
                                     disabled={selectedApplicants.length === 0}
                                     onClick={() => setBulkActionsModalOpen(true)}
                                 >
                                     Actions ({selectedApplicants.length})
+                                </button>
+                                <button
+                                    className="admissions-dashboard__export-csv-btn"
+                                    disabled={selectedApplicants.length === 0}
+                                    onClick={handleExportCSV}
+                                >
+                                    Export CSV ({selectedApplicants.length})
                                 </button>
                                 <button onClick={fetchApplications} className="refresh-btn">Refresh</button>
                             </div>
@@ -1332,9 +1704,21 @@ const AdmissionsDashboard = () => {
                         ) : (
                             <div className="no-data-message">
                                 <p>No applicants found</p>
-                                {applicationFilters.status && (
+                                {(applicationFilters.status || applicationFilters.info_session_status || applicationFilters.workshop_status || applicationFilters.program_admission_status || applicationFilters.ready_for_workshop_invitation || applicationFilters.name_search || nameSearchInput) && (
                                     <button
-                                        onClick={() => setApplicationFilters({ ...applicationFilters, status: '' })}
+                                        onClick={() => {
+                                            setNameSearchInput('');
+                                            setApplicationFilters({ 
+                                                status: '', 
+                                                info_session_status: '', 
+                                                workshop_status: '', 
+                                                program_admission_status: '', 
+                                                ready_for_workshop_invitation: false,
+                                                name_search: '',
+                                                limit: applicationFilters.limit,
+                                                offset: 0
+                                            });
+                                        }}
                                         className="clear-filter-btn"
                                     >
                                         Clear filters
@@ -1431,7 +1815,16 @@ const AdmissionsDashboard = () => {
                                                     <tr className="registrations-row">
                                                         <td colSpan="5" className="registrations-cell">
                                                             <div className="registrations-list">
-                                                                <h4>Registrations</h4>
+                                                                <div className="registrations-header">
+                                                                    <h4>Registrations</h4>
+                                                                    <button
+                                                                        className="add-registration-btn"
+                                                                        onClick={() => openAddRegistrationModal(session.event_id, 'info-session')}
+                                                                        title="Add registration"
+                                                                    >
+                                                                        + Add Registration
+                                                                    </button>
+                                                                </div>
                                                                 {eventRegistrations.length > 0 ? (
                                                                     <div className="registrations-table">
                                                                         <table className="mini-table">
@@ -1459,6 +1852,7 @@ const AdmissionsDashboard = () => {
                                                                                         </button>
                                                                                     </th>
                                                                                     <th>Status</th>
+                                                                                    <th>Actions</th>
                                                                                 </tr>
                                                                             </thead>
                                                                             <tbody>
@@ -1499,6 +1893,15 @@ const AdmissionsDashboard = () => {
                                                                                                 <option value="very_late">Very Late</option>
                                                                                                 <option value="no_show">No Show</option>
                                                                                             </select>
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <button
+                                                                                                className="remove-registration-btn"
+                                                                                                onClick={() => handleRemoveRegistration('info-session', session.event_id, reg.registration_id, `${reg.first_name} ${reg.last_name}`)}
+                                                                                                title="Cancel registration"
+                                                                                            >
+                                                                                                Remove
+                                                                                            </button>
                                                                                         </td>
                                                                                     </tr>
                                                                                 ))}
@@ -1617,7 +2020,16 @@ const AdmissionsDashboard = () => {
                                                     <tr className="registrations-row">
                                                         <td colSpan="6" className="registrations-cell">
                                                             <div className="registrations-list">
-                                                                <h4>Registrations</h4>
+                                                                <div className="registrations-header">
+                                                                    <h4>Registrations</h4>
+                                                                    <button
+                                                                        className="add-registration-btn"
+                                                                        onClick={() => openAddRegistrationModal(workshop.event_id, 'workshop')}
+                                                                        title="Add registration"
+                                                                    >
+                                                                        + Add Registration
+                                                                    </button>
+                                                                </div>
                                                                 {eventRegistrations.length > 0 ? (
                                                                     <div className="registrations-table">
                                                                         <table className="mini-table">
@@ -1646,6 +2058,7 @@ const AdmissionsDashboard = () => {
                                                                                     </th>
                                                                                     <th>Laptop</th>
                                                                                     <th>Status</th>
+                                                                                    <th>Actions</th>
                                                                                 </tr>
                                                                             </thead>
                                                                             <tbody>
@@ -1699,6 +2112,15 @@ const AdmissionsDashboard = () => {
                                                                                                 <option value="very_late">Very Late</option>
                                                                                                 <option value="no_show">No Show</option>
                                                                                             </select>
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <button
+                                                                                                className="remove-registration-btn"
+                                                                                                onClick={() => handleRemoveRegistration('workshop', workshop.event_id, reg.registration_id, `${reg.first_name} ${reg.last_name}`)}
+                                                                                                title="Cancel registration"
+                                                                                            >
+                                                                                                Remove
+                                                                                            </button>
                                                                                         </td>
                                                                                     </tr>
                                                                                 ))}
@@ -2004,6 +2426,129 @@ const AdmissionsDashboard = () => {
                     onAction={handleBulkAction}
                     isLoading={bulkActionInProgress}
                 />
+            )}
+
+            {/* Add Registration Modal */}
+            {addRegistrationModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal add-registration-modal">
+                        <div className="modal-header">
+                            <h2>Add Registration to {selectedEventType === 'info-session' ? 'Info Session' : 'Workshop'}</h2>
+                            <button className="close-btn" onClick={closeAddRegistrationModal}>×</button>
+                        </div>
+                        
+                        <div className="modal-content">
+                            <div className="search-section">
+                                <div className="form-group">
+                                    <label htmlFor="applicant-search">Search Applicants</label>
+                                    <input
+                                        type="text"
+                                        id="applicant-search"
+                                        value={applicantSearch}
+                                        onChange={(e) => {
+                                            setApplicantSearch(e.target.value);
+                                            searchApplicants(e.target.value);
+                                        }}
+                                        placeholder="Search by name, email, or applicant ID..."
+                                        className="search-input"
+                                    />
+                                </div>
+                                
+                                {searchLoading && (
+                                    <div className="search-loading">
+                                        <div className="spinner"></div>
+                                        <span>Searching...</span>
+                                    </div>
+                                )}
+                                
+                                {searchResults.length > 0 && (
+                                    <div className="search-results">
+                                        <h4>Search Results ({searchResults.length})</h4>
+                                        <div className="applicant-list">
+                                            {searchResults.map((applicant) => (
+                                                <div
+                                                    key={applicant.applicant_id}
+                                                    className={`applicant-item ${
+                                                        selectedApplicantsForRegistration.some(selected => selected.applicant_id === applicant.applicant_id) 
+                                                            ? 'selected' : ''
+                                                    } ${
+                                                        applicant.already_registered_for_this_event ? 'already-registered' : ''
+                                                    }`}
+                                                    onClick={() => !applicant.already_registered_for_this_event && toggleApplicantSelection(applicant)}
+                                                >
+                                                    <div className="applicant-info">
+                                                        <div className="applicant-name">
+                                                            {applicant.display_name}
+                                                            {applicant.already_registered_for_this_event && (
+                                                                <span className="already-registered-badge">Already Registered</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="applicant-details">
+                                                            <span className="applicant-email">{applicant.email}</span>
+                                                            <span className="applicant-status">
+                                                                App Status: {applicant.application_status}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {!applicant.already_registered_for_this_event && (
+                                                        <div className="selection-checkbox">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedApplicantsForRegistration.some(selected => selected.applicant_id === applicant.applicant_id)}
+                                                                onChange={() => toggleApplicantSelection(applicant)}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {selectedApplicantsForRegistration.length > 0 && (
+                                    <div className="selected-applicants">
+                                        <h4>Selected for Registration ({selectedApplicantsForRegistration.length})</h4>
+                                        <div className="selected-list">
+                                            {selectedApplicantsForRegistration.map((applicant) => (
+                                                <div key={applicant.applicant_id} className="selected-applicant">
+                                                    <span>{applicant.display_name}</span>
+                                                    <button
+                                                        onClick={() => toggleApplicantSelection(applicant)}
+                                                        className="remove-selected-btn"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="modal-actions">
+                            <button
+                                type="button"
+                                className="cancel-btn"
+                                onClick={closeAddRegistrationModal}
+                                disabled={registrationLoading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="submit-btn"
+                                onClick={registerSelectedApplicants}
+                                disabled={registrationLoading || selectedApplicantsForRegistration.length === 0}
+                            >
+                                {registrationLoading 
+                                    ? 'Registering...' 
+                                    : `Register ${selectedApplicantsForRegistration.length} Applicant${selectedApplicantsForRegistration.length !== 1 ? 's' : ''}`
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Notes Modal */}
