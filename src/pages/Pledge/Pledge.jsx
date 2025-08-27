@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import pursuitLogoFull from '../../assets/logo-full.png';
 import Swal from 'sweetalert2';
+import 'animate.css';
 import './Pledge.css';
 
 function Pledge() {
@@ -272,7 +273,7 @@ By participating in the Pursuit AI Native Program, you agree to abide by these e
     return `AI-Native Program Details
 
 I. Program Overview
-The Pursuit AI-Native Program is a 7-month intensive program designed to empower individuals to become AI-natives, capable of securing good jobs and leading in the AI-driven future. This program is built on a model centered around the following pillars:
+The Pursuit AI-Native Program is an intensive program designed to empower individuals to become AI-natives, capable of securing good jobs and leading in the AI-driven future. This program is built on a model centered around the following pillars:
 • AI-Powered Individual Learning: Utilizing AI tools for personalized learning pathways and skill development.
 • Self-Driven, Active Learning Through Building: Focusing on practical application and project-based learning.
 • Many-to-Many Learning and Teaching: Fostering a collaborative environment where Builders learn from and teach each other.
@@ -281,7 +282,7 @@ The Pursuit AI-Native Program is a 7-month intensive program designed to empower
 
 II. Program Schedule & Calendar
 Program Start Date: Saturday, September 6, 2025
-Program Duration: 2 months in AI Literacy, with the opportunity to continue for up to 7 months in AI Build and AI Showcase if selected.
+Program Duration: 2 months in AI Literacy, with the opportunity to continue for up to 7 months in AI Build and AI Showcase if selected. Please note that there may be breaks between program phases.
 
 Weekly Schedule:
 • Monday – Wednesday: 6:30 PM – 10:00 PM (In-Person, Long Island City)
@@ -398,14 +399,28 @@ To be clear, signing this pledge does NOT mean you are entering into the Good Jo
 
       const result = await submitResponse.json();
       
-      // Show success notification
+      // Show celebratory success notification
       await Swal.fire({
         icon: 'success',
-        title: 'Pledge Submitted Successfully!',
-        text: 'Thank you for completing your commitment to the AI-Native Program.',
+        title: '🎉 Congratulations! 🎉',
+        html: `
+          <div style="text-align: center;">
+            <h3 style="color: #4242ea; margin: 20px 0;">Welcome to the AI-Native Program!</h3>
+            <p style="font-size: 18px; margin: 15px 0;">🚀 Your journey as a Builder starts now! 🚀</p>
+            <p style="font-size: 16px; margin: 10px 0;">Thank you for making this commitment to transform yourself and shape the future with AI.</p>
+            <p style="font-size: 14px; color: #666; margin-top: 20px;">Get ready to build, learn, and innovate like never before!</p>
+          </div>
+        `,
+        confirmButtonText: '🎯 Let\'s Build the Future!',
         confirmButtonColor: '#4242ea',
-        timer: 3000,
-        timerProgressBar: true
+        timer: 6000,
+        timerProgressBar: true,
+        showClass: {
+          popup: 'animate__animated animate__bounceIn'
+        },
+        hideClass: {
+          popup: 'animate__animated animate__fadeOut'
+        }
       });
       
       // Navigate back to applicant dashboard
