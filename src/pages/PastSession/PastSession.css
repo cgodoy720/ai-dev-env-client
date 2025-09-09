@@ -1455,6 +1455,40 @@
   color: inherit;
 }
 
+/* NEW: CSS for preprocessed code content - same as Learning.css */
+.code-block-content {
+  background-color: rgba(0, 0, 0, 0.4);
+  padding: 12px;
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  
+  /* FIXED: Only width containment, no height restriction */
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  
+  /* Allow text to wrap naturally since we preprocessed it */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  
+  /* Natural height expansion - show all content */
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  overflow-y: visible;
+  
+  /* Only horizontal overflow control */
+  overflow-x: hidden;
+  
+  /* Create layout context without size restriction */
+  position: relative;
+  isolation: isolate;
+}
+
 /* Inline code styling */
 .inline-code {
   background-color: rgba(0, 0, 0, 0.3);
