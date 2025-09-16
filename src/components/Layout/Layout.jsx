@@ -17,6 +17,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import QuizIcon from '@mui/icons-material/Quiz';
 import FeedbackIcon from '@mui/icons-material/Feedback';
+
 import { useAuth } from '../../context/AuthContext';
 import './Layout.css';
 import logo from '../../assets/logo.png'
@@ -145,10 +146,12 @@ const Layout = ({ children }) => {
                 <PersonIcon className="layout__nav-icon" />
                 {isExpanded && <span className="layout__nav-text">Facilitator View</span>}
               </Link> */}
+
               <Link to="/admin-volunteer-feedback" className={`layout__nav-item ${location.pathname === '/admin-volunteer-feedback' ? 'layout__nav-item--active' : ''}`}>
                 <FeedbackIcon className="layout__nav-icon" />
                 {isExpanded && <span className="layout__nav-text">Volunteer Feedback</span>}
               </Link>
+
             </>
           )}
         </div>
