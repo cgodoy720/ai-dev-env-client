@@ -14,8 +14,12 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PersonIcon from '@mui/icons-material/Person';
 import GroupsIcon from '@mui/icons-material/Groups';
+<<<<<<< HEAD
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import QuizIcon from '@mui/icons-material/Quiz';
+=======
+import FeedbackIcon from '@mui/icons-material/Feedback';
+>>>>>>> joanna/feature
 import { useAuth } from '../../context/AuthContext';
 import './Layout.css';
 import logo from '../../assets/logo.png'
@@ -31,6 +35,8 @@ const Layout = ({ children }) => {
   const isActive = user?.active !== false;
   // Check if user is admin or staff
   const isAdmin = user?.role === 'admin' || user?.role === 'staff';
+  // Check if user is volunteer
+  const isVolunteer = user?.role === 'volunteer';
 
   const handleLogout = () => {
     logout();
@@ -99,6 +105,7 @@ const Layout = ({ children }) => {
             {isExpanded && <span className="layout__nav-text">My Progress</span>}
           </Link>
           
+<<<<<<< HEAD
           {isActive ? (
             <Link to="/assessment" className={`layout__nav-item ${location.pathname === '/assessment' ? 'layout__nav-item--active' : ''}`}>
               <QuizIcon className="layout__nav-icon" />
@@ -111,6 +118,13 @@ const Layout = ({ children }) => {
                 {isExpanded && <span className="layout__nav-text">Assessment</span>}
               </span>
             </Tooltip>
+=======
+          {isVolunteer && (
+            <Link to="/volunteer-feedback" className={`layout__nav-item ${location.pathname === '/volunteer-feedback' ? 'layout__nav-item--active' : ''}`}>
+              <FeedbackIcon className="layout__nav-icon" />
+              {isExpanded && <span className="layout__nav-text">Volunteer Feedback</span>}
+            </Link>
+>>>>>>> joanna/feature
           )}
           
           {isAdmin && (
@@ -134,7 +148,15 @@ const Layout = ({ children }) => {
               {/* <Link to="/facilitator-view" className={`layout__nav-item ${location.pathname === '/facilitator-view' ? 'layout__nav-item--active' : ''}`}>
                 <PersonIcon className="layout__nav-icon" />
                 {isExpanded && <span className="layout__nav-text">Facilitator View</span>}
+<<<<<<< HEAD
               </Link> */}
+=======
+              </Link>
+              <Link to="/admin-volunteer-feedback" className={`layout__nav-item ${location.pathname === '/admin-volunteer-feedback' ? 'layout__nav-item--active' : ''}`}>
+                <FeedbackIcon className="layout__nav-icon" />
+                {isExpanded && <span className="layout__nav-text">Volunteer Feedback</span>}
+              </Link>
+>>>>>>> joanna/feature
             </>
           )}
         </div>
