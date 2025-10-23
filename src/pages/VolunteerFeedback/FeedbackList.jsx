@@ -175,7 +175,6 @@ function FeedbackList({ feedback, onDelete, onUpdate, token }) {
 
                         {/* Fallback for completely empty feedback */}
                         {!feedbackItem.overall_experience && !feedbackItem.improvement_suggestions && !feedbackItem.specific_feedback && !feedbackItem.audio_recording_url && (
-
                             <div className="feedback-item__empty">
                                 No feedback content available
                             </div>
