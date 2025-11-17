@@ -70,10 +70,11 @@
 .admissions-dashboard__content {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem 2rem 1rem 2rem;
+  padding: 1.5rem 0 1rem 0;
   width: 100%;
   height: 0;
   /* Force flex child to respect parent height */
+  /* ZERO horizontal padding for FULL page width table */
 }
 
 /* Overview Section - Full height layout */
@@ -81,6 +82,12 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .admissions-dashboard__overview .admissions-dashboard__stats-grid {
@@ -126,14 +133,53 @@
 }
 
 .admissions-dashboard__stat-card {
-  background: var(--color-background-darker);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 1rem;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(75, 61, 237, 0.2) 100%);
+  border: 2px solid rgba(75, 61, 237, 0.5);
+  border-radius: 16px;
+  padding: 1.5rem;
   height: 100%;
   /* Fill grid cell height */
   display: flex;
   flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.admissions-dashboard__stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(75, 61, 237, 0.8), rgba(75, 61, 237, 0.9), rgba(75, 61, 237, 0.8));
+}
+
+.admissions-dashboard__stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(75, 61, 237, 0.7);
+  border-width: 2px;
+  box-shadow: 0 12px 24px rgba(75, 61, 237, 0.25), 0 4px 8px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.5) 0%, rgba(75, 61, 237, 0.3) 100%);
+}
+
+/* Demographic tiles - solid purple */
+.admissions-dashboard__stat-card.demographic-card {
+  background: linear-gradient(135deg, rgba(75, 61, 237, 0.25) 0%, rgba(75, 61, 237, 0.2) 100%);
+  border: 2px solid rgba(75, 61, 237, 0.6);
+}
+
+.admissions-dashboard__stat-card.demographic-card::before {
+  background: linear-gradient(90deg, rgba(75, 61, 237, 0.9), rgba(75, 61, 237, 1), rgba(75, 61, 237, 0.9));
+}
+
+.admissions-dashboard__stat-card.demographic-card:hover {
+  background: linear-gradient(135deg, rgba(75, 61, 237, 0.35) 0%, rgba(75, 61, 237, 0.3) 100%);
+  border-color: rgba(75, 61, 237, 0.8);
+  border-width: 2px;
+  box-shadow: 0 12px 24px rgba(75, 61, 237, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .admissions-dashboard__stat-card--wide {
@@ -166,10 +212,38 @@
 }
 
 .admissions-dashboard__stat-card-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
   margin: 0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 1;
+}
+
+/* Overview filter styling */
+.overview-filter {
+  background: linear-gradient(135deg, var(--color-background-darker), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.overview-filter-select {
+  background: var(--color-background-darker);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.overview-filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-transparent);
 }
 
 .admissions-dashboard__stat-card-icon {
@@ -179,11 +253,16 @@
 }
 
 .admissions-dashboard__stat-card-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  margin-bottom: 0.25rem;
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4B3DED 0%, #6366f1 50%, #4B3DED 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
   line-height: 1;
+  text-shadow: 0 2px 8px rgba(75, 61, 237, 0.3);
+  letter-spacing: -0.02em;
 }
 
 .admissions-dashboard__stat-card-subtitle {
@@ -362,12 +441,16 @@
   box-sizing: border-box;
 }
 
-/* Ensure Applications section maintains consistent width */
+/* Ensure Applications section maintains consistent width and has ZERO padding for FULL page width */
 .admissions-dashboard__applications {
   min-width: 0;
   /* Allow flexbox to work properly */
   overflow: hidden;
   /* Prevent content from breaking out */
+  padding: 0;
+  /* ZERO padding - table stretches FULL page width edge to edge */
+  background: transparent;
+  /* Remove background to blend with page */
 }
 
 .admissions-dashboard__overview h2,
@@ -567,12 +650,14 @@
   /* Always take full width of parent */
   overflow-x: auto;
   /* Allow horizontal scrolling if needed */
+  max-width: 100vw;
+  /* Never exceed viewport width */
 }
 
 .data-table {
   width: 100%;
-  min-width: 1200px;
-  /* Ensure minimum width to prevent shrinking */
+  min-width: 1800px;
+  /* Maximized minimum width for all columns with generous space */
   border-collapse: collapse;
   table-layout: fixed;
   /* Fixed layout for consistent column widths */
@@ -2054,27 +2139,27 @@ Assessment Funnel Styles */
 
 /* Compact Applications Table Styles */
 .admissions-dashboard__applications .data-table {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
 }
 
 .admissions-dashboard__applications .data-table th {
-  font-size: 0.75rem;
-  padding: 0.6rem 0.4rem;
+  font-size: 0.65rem;
+  padding: 0.5rem 0.3rem;
   font-weight: 600;
 }
 
 .admissions-dashboard__applications .data-table td {
-  font-size: 0.8rem;
-  padding: 0.6rem 0.4rem;
-  line-height: 1.3;
+  font-size: 0.7rem;
+  padding: 0.5rem 0.3rem;
+  line-height: 1.2;
   vertical-align: middle;
 }
 
 /* Compact copyable elements */
 .copyable-email,
 .copyable-phone {
-  font-size: 0.8rem;
-  padding: 1px 3px;
+  font-size: 0.7rem;
+  padding: 1px 2px;
 }
 
 /* Extra compact info session badges */
@@ -2368,11 +2453,14 @@ Assessment Funnel Styles */
 
 /* Improved stat card value styling */
 .admissions-dashboard__stat-card-value {
-  background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+  background: linear-gradient(135deg, #4B3DED 0%, #6366f1 50%, #4B3DED 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-shadow: 0 2px 8px rgba(75, 61, 237, 0.3);
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* Enhanced grid layout with better spacing */
@@ -2410,9 +2498,9 @@ Assessment Funnel Styles */
 
 /* Subtle glow effect for active elements */
 .admissions-dashboard__stat-card:hover {
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.2),
-    0 0 20px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 12px 24px rgba(75, 61, 237, 0.25), 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+  border-color: rgba(75, 61, 237, 0.5);
 }
 
 /* Enhanced loading state */
@@ -2500,11 +2588,9 @@ Assessment Funnel Styles */
 
 /* Enhanced stat card styling with subtle gradients */
 .admissions-dashboard__stat-card {
-  background: linear-gradient(135deg,
-      var(--color-background-dark) 0%,
-      rgba(255, 255, 255, 0.02) 100%);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(75, 61, 237, 0.2) 100%);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(75, 61, 237, 0.3);
 }
 
 /* Improved content area with subtle border */
@@ -2720,24 +2806,24 @@ lumn Widths for Consistent Layout */
   width: 120px;
 }
 
-/* Status */
+/* Status - narrower */
 .data-table th:nth-child(6) {
-  width: 140px;
+  width: 100px;
 }
 
 /* Assessment */
 .data-table th:nth-child(7) {
-  width: 130px;
+  width: 110px;
 }
 
 /* Info Session */
 .data-table th:nth-child(8) {
-  width: 120px;
+  width: 100px;
 }
 
-/* Workshop */
+/* Workshop - narrower */
 .data-table th:nth-child(9) {
-  width: 120px;
+  width: 90px;
 }
 
 /* Admission */
@@ -2771,24 +2857,24 @@ lumn Widths for Consistent Layout */
   width: 120px;
 }
 
-/* Status */
+/* Status - narrower */
 .data-table td:nth-child(6) {
-  width: 140px;
+  width: 100px;
 }
 
 /* Assessment */
 .data-table td:nth-child(7) {
-  width: 130px;
+  width: 110px;
 }
 
 /* Info Session */
 .data-table td:nth-child(8) {
-  width: 120px;
+  width: 100px;
 }
 
-/* Workshop */
+/* Workshop - narrower */
 .data-table td:nth-child(9) {
-  width: 120px;
+  width: 90px;
 }
 
 /* Admission */
@@ -3514,11 +3600,23 @@ onsive table adjustments */
   /* Prevent the container from shrinking */
 }
 
-/* Make sure the applications section doesn't change width */
-.admissions-dashboard__applications .data-section__header,
+/* Make sure the applications section stretches FULL page width */
+.admissions-dashboard__applications .data-section__header {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.25rem;
+  /* Absolute minimal horizontal padding for controls */
+  margin-bottom: 0.5rem;
+}
+
 .admissions-dashboard__applications .data-table-container {
   width: 100%;
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  /* ZERO margin and padding - FULL width edge to edge */
+  border-radius: 0;
+  /* Remove border radius for true edge-to-edge look */
 }
 
 /* Inf
@@ -4010,31 +4108,110 @@ p indicator styles */
 .selected-applicant {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   background: var(--color-primary);
   color: white;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
   font-size: 0.85rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.applicant-name-selected {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.laptop-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.laptop-toggle-btn {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.laptop-toggle-btn:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.laptop-toggle-btn--needs {
+  background: #10b981; /* Green for needs laptop */
+}
+
+.laptop-toggle-btn--owns {
+  background: rgba(255, 255, 255, 0.3); /* Light for owns laptop */
+}
+
+.laptop-toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.laptop-toggle-btn--needs .laptop-toggle-slider {
+  transform: translateX(20px);
+}
+
+.laptop-toggle-btn--owns .laptop-toggle-slider {
+  transform: translateX(0);
+}
+
+.laptop-status-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.laptop-status-label--needs {
+  color: white;
+}
+
+.laptop-status-label--owns {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .remove-selected-btn {
   background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
   line-height: 1;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: background 0.2s ease;
 }
 
 .remove-selected-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* Mobile Responsiveness */

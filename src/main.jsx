@@ -18,12 +18,17 @@ import ApplicationForm from './pages/ApplicationForm/index.js'
 import InfoSessions from './pages/InfoSessions/index.js'
 import Workshops from './pages/Workshops/index.js'
 import ProgramDetails from './pages/ProgramDetails/index.js'
+import PaymentTerms from './pages/PaymentTerms/index.js'
 import Pledge from './pages/Pledge/index.js'
 import Unsubscribe from './pages/Unsubscribe/Unsubscribe.jsx'
+
+// Public form pages
+import PublicFormContainer from './pages/PublicForm/PublicFormContainer.jsx'
 
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { isAuthenticated } from './utils/attendanceAuth'
 import './utils/globalErrorHandler.js' // Install global auth error handler
+import 'animate.css'
 import './index.css'
 
 // Protected route component
@@ -79,8 +84,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/info-sessions" element={<InfoSessions />} />
           <Route path="/workshops" element={<Workshops />} />
           <Route path="/program-details" element={<ProgramDetails />} />
+          <Route path="/payment-terms" element={<PaymentTerms />} />
           <Route path="/pledge" element={<Pledge />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
+          
+          {/* Public form routes (no auth required) */}
+          <Route path="/form/:slug" element={<PublicFormContainer />} />
           
           {/* Protected builder routes */}
           <Route 

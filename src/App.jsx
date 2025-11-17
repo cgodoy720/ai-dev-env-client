@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { enableErrorTesting } from './utils/errorTestingUtils';
 import Layout from './components/Layout/Layout';
 import Dashboard from './pages/Dashboard/Dashboard';
 import GPT from './pages/GPT/GPT';
@@ -7,13 +8,16 @@ import Calendar from './pages/Calendar/Calendar';
 import Learning from './pages/Learning/Learning';
 import PastSession from './pages/PastSession/PastSession';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
+import AdminAttendanceDashboard from './pages/AdminAttendanceDashboard/AdminAttendanceDashboard';
 import AdmissionsDashboard from './pages/AdmissionsDashboard';
 import ApplicationDetail from './pages/AdmissionsDashboard/ApplicationDetail';
 import Content from './pages/Content';
 import FacilitatorView from './pages/FacilitatorView';
 import AdminPrompts from './pages/AdminPrompts';
 import Stats from './pages/Stats';
+import Performance from './pages/Performance/Performance';
 import Account from './pages/Account/Account';
+import Payment from './pages/Payment/Payment';
 import Assessment from './pages/Assessment/Assessment';
 import AssessmentLayout from './pages/Assessment/components/AssessmentLayout/AssessmentLayout';
 import SelfAssessmentPage from './pages/Assessment/components/SelfAssessmentPage/SelfAssessmentPage';
@@ -22,6 +26,23 @@ import AssessmentGrades from './pages/AssessmentGrades/AssessmentGrades';
 import VolunteerFeedback from './pages/VolunteerFeedback/VolunteerFeedback';
 import AdminVolunteerFeedback from './pages/AdminVolunteerFeedback';
 import ExpiredTokenModal from './components/ExpiredTokenModal/ExpiredTokenModal';
+
+// Pathfinder pages
+import Pathfinder from './pages/Pathfinder';
+import PathfinderPersonalDashboard from './pages/Pathfinder/PathfinderPersonalDashboard';
+import PathfinderApplications from './pages/PathfinderApplications';
+import PathfinderNetworking from './pages/PathfinderNetworking';
+import PathfinderProjects from './pages/PathfinderProjects';
+import PathfinderAdminDashboard from './pages/PathfinderDashboard';
+import PathfinderAdmin from './pages/PathfinderAdmin';
+
+import WorkshopAdminDashboard from './pages/WorkshopAdminDashboard/WorkshopAdminDashboard';
+
+// Form Builder pages
+import FormBuilderDashboard from './pages/FormBuilder/FormBuilderDashboard';
+import FormEditor from './pages/FormBuilder/FormEditor';
+import FormSubmissions from './pages/FormBuilder/FormSubmissions';
+import FormAnalytics from './pages/FormBuilder/FormAnalytics';
 
 import { useAuth } from './context/AuthContext';
 import { resetAuthModalState } from './utils/globalErrorHandler';
@@ -46,6 +67,9 @@ function App() {
   // Reset auth state on app load
   useEffect(() => {
     resetAuthModalState();
+    
+    // Enable error testing utilities in development
+    enableErrorTesting();
   }, []);
   
   // Listen for auth error events from global error handler
@@ -124,6 +148,17 @@ function App() {
     return children;
   };
 
+  // Workshop Admin route protection component
+  const WorkshopAdminRoute = ({ children }) => {
+    const isWorkshopAdmin = user?.role === 'workshop_admin' || user?.role === 'admin' || user?.role === 'staff';
+    
+    if (!isWorkshopAdmin) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    
+    return children;
+  };
+
 
 
   // If auth is still loading, show a minimal loading state
@@ -136,11 +171,11 @@ function App() {
       <Routes>
         {/* Builder routes (with layout) */}
         <Route path="/dashboard" element={
-          <Layout>
+          <ProtectedRoute>
             <Dashboard />
-          </Layout>
+          </ProtectedRoute>
         } />
-        <Route path="/gpt" element={
+        <Route path="/ai-chat" element={
           <Layout>
             <GPT />
           </Layout>
@@ -198,10 +233,24 @@ function App() {
             </AdminRoute>
           </Layout>
         } />
+        <Route path="/admin" element={
+          <Layout>
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          </Layout>
+        } />
         <Route path="/admin/assessment-grades" element={
           <Layout>
             <AdminRoute>
               <AssessmentGrades />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/attendance-management" element={
+          <Layout>
+            <AdminRoute>
+              <AdminAttendanceDashboard />
             </AdminRoute>
           </Layout>
         } />
@@ -247,9 +296,17 @@ function App() {
             </AdminRoute>
           </Layout>
         } />
-        <Route path="/stats" element={
+        <Route path="/workshop-admin-dashboard" element={
           <Layout>
-            <Stats />
+            <WorkshopAdminRoute>
+              <WorkshopAdminDashboard />
+            </WorkshopAdminRoute>
+          </Layout>
+        } />
+        <Route path="/stats" element={<Navigate to="/performance" replace />} />
+        <Route path="/performance" element={
+          <Layout>
+            <Performance />
           </Layout>
         } />
         <Route path="/account" element={
@@ -257,9 +314,83 @@ function App() {
             <Account />
           </Layout>
         } />
+        <Route path="/payment" element={
+          <Layout>
+            <Payment />
+          </Layout>
+        } />
+        
+        {/* Pathfinder routes - personal view with nested routes */}
+        <Route path="/pathfinder/*" element={
+          <Layout>
+            <Pathfinder />
+          </Layout>
+        }>
+          <Route path="dashboard" element={<PathfinderPersonalDashboard />} />
+          <Route path="applications" element={<PathfinderApplications />} />
+          <Route path="networking" element={<PathfinderNetworking />} />
+          <Route path="projects" element={<PathfinderProjects />} />
+        </Route>
+        
+        {/* Pathfinder admin dashboard - separate route */}
+        <Route path="/pathfinder-admin" element={
+          <Layout>
+            <AdminRoute>
+              <PathfinderAdminDashboard />
+            </AdminRoute>
+          </Layout>
+        } />
+
+        {/* New Pathfinder Admin page */}
+        <Route path="/pathfinder/admin" element={
+          <Layout>
+            <AdminRoute>
+              <PathfinderAdmin />
+            </AdminRoute>
+          </Layout>
+        } />
+        
         <Route path="/volunteer-feedback" element={
           <VolunteerFeedback />
         } />
+
+        {/* Form Builder routes (Admin/Staff only) */}
+        <Route path="/forms" element={
+          <Layout>
+            <AdminRoute>
+              <FormBuilderDashboard />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/forms/new" element={
+          <Layout>
+            <AdminRoute>
+              <FormEditor />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/forms/:formId/edit" element={
+          <Layout>
+            <AdminRoute>
+              <FormEditor />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/forms/:formId/submissions" element={
+          <Layout>
+            <AdminRoute>
+              <FormSubmissions />
+            </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/forms/:formId/analytics" element={
+          <Layout>
+            <AdminRoute>
+              <FormAnalytics />
+            </AdminRoute>
+          </Layout>
+        } />
+
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
       

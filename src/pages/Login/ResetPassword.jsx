@@ -4,6 +4,8 @@ import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import logoFull from '../../assets/logo-full.png';
 import './ResetPassword.css';
 
+const SPECIAL_CHARS = '!@#$%^&*(),.?":{}|<>';
+
 const ResetPassword = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,7 +39,7 @@ const ResetPassword = () => {
             const encodedToken = encodeURIComponent(cleanToken);
             console.log('Encoded token:', encodedToken);
             
-            const apiUrl = `${import.meta.env.VITE_API_URL}/api/users/reset-password/${encodedToken}`;
+            const apiUrl = `${import.meta.env.VITE_API_URL}/api/auth/reset-password/${encodedToken}`;
             console.log('API URL:', apiUrl);
             
             // Check if the password meets the requirements
@@ -45,7 +47,7 @@ const ResetPassword = () => {
             const hasUpperCase = /[A-Z]/.test(password);
             const hasLowerCase = /[a-z]/.test(password);
             const hasNumbers = /\d/.test(password);
-            const hasSpecialChar = /[@$!%*?&]/.test(password);
+            const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
             
             console.log('Password validation:', {
                 minLength,
@@ -109,8 +111,8 @@ const ResetPassword = () => {
                             className="reset-password-input"
                             disabled={isLoading}
                             minLength="8"
-                            pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
-                            title="Password must contain at least 8 characters, including uppercase, lowercase, number and special character (@$!%*?&)"
+                            pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?&quot;:{}|<>])[A-Za-z\d!@#$%^&*(),.?&quot;:{}|<>]{8,}$"
+                            title="Password must contain at least 8 characters, including uppercase, lowercase, number and special character"
                         />
                         <button 
                             type="button" 
@@ -123,7 +125,7 @@ const ResetPassword = () => {
                     </div>
                     
                     <div className="password-requirements-hint">
-                        Password must contain at least 8 characters, including uppercase, lowercase, number and special character (@$!%*?&)
+                        Password must contain at least 8 characters, including uppercase, lowercase, number and special character ({SPECIAL_CHARS})
                     </div>
                     
                     <div className="reset-password-input-group">
