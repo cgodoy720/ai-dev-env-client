@@ -5,6 +5,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getThreads, getThreadMessages, createThread, sendMessageToGPT } from '../../utils/api';
 import SummaryModal from '../../components/SummaryModal/SummaryModal';
 import ReactMarkdown from 'react-markdown';
+import LoadingCurtain from '../../components/LoadingCurtain/LoadingCurtain';
 
 // New Components
 import GPTTopBar from './components/GPTTopBar';
@@ -50,7 +51,8 @@ function GPT() {
   const [isSending, setIsSending] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   // Summary-related state
   const [currentThreadSummary, setCurrentThreadSummary] = useState(null);
@@ -67,7 +69,7 @@ function GPT() {
     { value: 'anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5', description: 'Advanced reasoning' },
     { value: 'anthropic/claude-haiku-4.5', label: 'Claude Haiku 4.5', description: 'Fast & efficient' },
     { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini', description: 'Quick responses' },
-    { value: 'google/gemini-2.0-flash-thinking-exp', label: 'Gemini Flash 2.0', description: 'Reasoning optimized' },
+    { value: 'google/gemini-2.5-flash-lite', label: 'Gemini Flash 2.5 Lite', description: 'Fast & efficient' },
     { value: 'deepseek/deepseek-chat', label: 'DeepSeek Chat', description: 'Code specialist' },
     { value: 'x-ai/grok-4-fast', label: 'Grok 4 Fast', description: 'Fast reasoning' }
   ];
@@ -261,7 +263,8 @@ function GPT() {
     } finally {
       // Only update loading state if not aborted
       if (!abortController.signal.aborted) {
-      setIsLoading(false);
+        setIsLoading(false);
+        setIsInitialLoad(false);
       }
     }
   };
@@ -398,11 +401,15 @@ function GPT() {
           const threadIdField = newThread.thread_id ? 'thread_id' : 'id';
           const newThreadId = newThread[threadIdField];
           setThreads(prev => [newThread, ...prev]);
-          setActiveThread(newThreadId);
+          // Don't set activeThread yet - we'll do it after sending the message
+          // This prevents the useEffect from trying to fetch messages while we're sending
           setMessages([]);
           
           // Now send the message to the new thread
           await sendMessageToNewThread(newThreadId);
+          
+          // Now set the active thread after message is sent
+          setActiveThread(newThreadId);
         }
         setError('');
       } catch (err) {
@@ -919,7 +926,7 @@ function GPT() {
         <div className="flex-1 flex flex-col relative overflow-hidden">
           {/* Empty State or Messages Area */}
           <div className="flex-1 overflow-y-auto py-8 px-6" style={{ paddingBottom: '180px' }}>
-            {!activeThread ? (
+            {!activeThread && messages.length === 0 ? (
               <div className="max-w-2xl mx-auto pt-[50px]">
                 <h2 className="text-[18px] leading-[26px] font-proxima font-normal text-black mb-6">
                   What can we build together?
@@ -932,9 +939,7 @@ function GPT() {
               </div>
             ) : (
               <div className="max-w-2xl mx-auto">
-                {isLoading && messages.length === 0 ? (
-                  <div className="text-center text-gray-500 font-proxima">Loading messages...</div>
-                ) : messages.length === 0 ? (
+                {messages.length === 0 ? (
                   <div className="text-center">
                     <p className="text-gray-500 font-proxima">
                       {isInactiveUser 
@@ -1331,6 +1336,9 @@ function GPT() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Loading Curtain */}
+      <LoadingCurtain isLoading={isInitialLoad} />
     </div>
   );
 }

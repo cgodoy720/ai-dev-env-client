@@ -17,12 +17,13 @@ import { toast } from 'sonner';
 import PeerFeedbackForm from '../../components/PeerFeedbackForm';
 import TaskSubmission from '../../components/TaskSubmission/TaskSubmission';
 import AnalysisModal from '../../components/AnalysisModal/AnalysisModal';
-import BuilderFeedbackForm from '../../components/BuilderFeedbackForm/BuilderFeedbackForm';
+import SurveyInterface from '../../components/SurveyInterface/SurveyInterface';
 import DeliverablePanel from './components/DeliverablePanel/DeliverablePanel';
 import TaskCompletionBar from '../../components/TaskCompletionBar/TaskCompletionBar';
 
 import './Learning.css';
 import '../../styles/smart-tasks.css';
+import LoadingCurtain from '../../components/LoadingCurtain/LoadingCurtain';
 
 function Learning() {
   const { token, user } = useAuth();
@@ -174,6 +175,17 @@ function Learning() {
             timeBlocks.forEach(block => {
               if (block.tasks) {
                 block.tasks.forEach(task => {
+                  // Debug: Log raw task data to see what backend is sending
+                  if (task.task_title?.includes('Feedback') || task.feedback_slot) {
+                    console.log('🔍 Raw task from backend:', {
+                      id: task.id,
+                      title: task.task_title,
+                      feedback_slot: task.feedback_slot,
+                      feedback_slot_type: typeof task.feedback_slot,
+                      all_keys: Object.keys(task)
+                    });
+                  }
+                  
                   allTasks.push({
                     id: task.id,
                     task_title: task.task_title,
@@ -189,6 +201,7 @@ function Learning() {
                     task_mode: task.task_mode,
                     conversation_model: task.conversation_model,
                     persona: task.persona,
+                    feedback_slot: task.feedback_slot, // Include feedback_slot for survey detection
                     start_time: block.start_time,
                     end_time: block.end_time,
                     category: block.block_category // Use block_category from backend
@@ -199,6 +212,31 @@ function Learning() {
             
             setTasks(allTasks);
             console.log('Processed tasks:', allTasks);
+            
+            // Debug: Log all tasks and their feedback_slot values
+            console.log('All task feedback_slot values:', allTasks.map(t => ({
+              id: t.id,
+              title: t.task_title,
+              feedback_slot: t.feedback_slot,
+              feedback_slot_type: typeof t.feedback_slot
+            })));
+            
+            // Debug: Log survey tasks specifically
+            const validSurveyTypes = ['weekly', 'l1_final', 'end_of_l1', 'mid_program', 'final'];
+            const surveyTasks = allTasks.filter(task => 
+              task.feedback_slot && 
+              typeof task.feedback_slot === 'string' &&
+              validSurveyTypes.includes(task.feedback_slot)
+            );
+            if (surveyTasks.length > 0) {
+              console.log('Valid survey tasks found:', surveyTasks.map(t => ({
+                id: t.id,
+                title: t.task_title,
+                feedback_slot: t.feedback_slot
+              })));
+            } else {
+              console.log('No valid survey tasks found');
+            }
             
             // NEW: Fetch completion status for all tasks on this day
             if (allTasks.length > 0) {
@@ -262,6 +300,18 @@ function Learning() {
 
   // Helper function to load conversation for a task
   const loadTaskConversation = async (task) => {
+    // If this is a survey task, don't load conversation - survey will handle itself
+    const validSurveyTypes = ['weekly', 'l1_final', 'end_of_l1', 'mid_program', 'final'];
+    const isTaskSurvey = task?.feedback_slot && 
+                        typeof task.feedback_slot === 'string' &&
+                        validSurveyTypes.includes(task.feedback_slot);
+                        
+    if (isTaskSurvey) {
+      console.log(`Task ${task.id} is a survey (${task.feedback_slot}), skipping conversation load`);
+      setIsAiThinking(false);
+      return;
+    }
+    
     // Abort any pending conversation load request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -761,38 +811,84 @@ function Learning() {
     toast.info("AI Feedback feature coming soon!");
   };
 
-  // Loading state
-  if (isPageLoading) {
-    return <div className="min-h-screen bg-bg-light flex items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-carbon-black">Loading learning session...</h2>
-      </div>
-    </div>;
-  }
+  // Check if current task is a survey
+  const isCurrentTaskSurvey = () => {
+    const currentTask = tasks[currentTaskIndex];
+    
+    if (!currentTask) {
+      return false;
+    }
+    
+    // More specific survey detection - only true if feedback_slot is a valid survey type string
+    const validSurveyTypes = ['weekly', 'l1_final', 'end_of_l1', 'mid_program', 'final'];
+    const isSurvey = currentTask?.feedback_slot && 
+                     typeof currentTask.feedback_slot === 'string' &&
+                     validSurveyTypes.includes(currentTask.feedback_slot);
+    
+    return isSurvey;
+  };
 
-  // Add a check for empty tasks
-  if (tasks.length === 0) {
-    return (
-      <div className="min-h-screen bg-bg-light flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-carbon-black mb-4">No Activities Available</h2>
-          <p className="text-gray-600 mb-2">There are no activities scheduled for today.</p>
-          <p className="text-gray-600 mb-6">Check back tomorrow for your next scheduled activities.</p>
-          <button
-            onClick={() => navigate('/calendar')}
-            className="relative px-8 py-3 rounded-lg bg-pursuit-purple text-white font-proxima font-semibold overflow-hidden group active:scale-95 transition-all duration-300 hover:shadow-[0_0_0_1px_#4242EA]"
-          >
-            <span className="relative z-10 group-hover:text-pursuit-purple transition-colors duration-300">
-              View Calendar
-            </span>
-            <div 
-              className="absolute inset-0 -translate-x-full group-hover:translate-x-0 transition-transform duration-300 bg-bg-light"
-            />
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Handle survey completion
+  const handleSurveyComplete = async () => {
+    const currentTask = tasks[currentTaskIndex];
+    const isLastTask = currentTaskIndex === tasks.length - 1;
+    
+    if (!currentTask?.id) {
+      toast.error("Unable to proceed - current task not found");
+      return;
+    }
+    
+    try {
+      // Mark current task as complete
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/learning/complete-task/${currentTask.id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            notes: 'Survey completed'
+          }),
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to mark task as complete');
+      }
+      
+      console.log('✅ Survey task marked as complete');
+      
+      // Update local completion status
+      setTaskCompletionMap(prev => ({
+        ...prev,
+        [currentTask.id]: {
+          ...prev[currentTask.id],
+          isComplete: true,
+          reason: 'Survey completed'
+        }
+      }));
+      
+      // Navigate based on whether this is the last task
+      if (isLastTask) {
+        // If last task, navigate back to overview after delay
+        setTimeout(() => {
+          setShowDailyOverview(true);
+        }, 2000);
+      } else {
+        // If not last task, navigate to next task after delay
+        setTimeout(async () => {
+          const nextTaskIndex = currentTaskIndex + 1;
+          await handleTaskChange(nextTaskIndex);
+        }, 2000);
+      }
+      
+    } catch (error) {
+      console.error('Error marking survey task complete:', error);
+      toast.error("Failed to mark task complete. Please try again.");
+    }
+  };
 
   // Show daily overview first
   if (showDailyOverview) {
@@ -809,18 +905,44 @@ function Learning() {
     })() : false;
     
     return (
-      <DailyOverview 
-        currentDay={currentDay}
-        tasks={tasks}
-        taskCompletionMap={taskCompletionMap}
-        isPastDay={isPastDay}
-        onStartActivity={handleStartActivity}
-      />
+      <>
+        <DailyOverview 
+          currentDay={currentDay}
+          tasks={tasks}
+          taskCompletionMap={taskCompletionMap}
+          isPastDay={isPastDay}
+          onStartActivity={handleStartActivity}
+        />
+        {/* Loading Curtain */}
+        <LoadingCurtain isLoading={isPageLoading} />
+      </>
     );
   }
 
   return (
-    <div className="learning h-screen bg-bg-light flex flex-col">
+    <>
+      {/* Add a check for empty tasks */}
+      {tasks.length === 0 ? (
+        <div className="min-h-screen bg-bg-light flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-carbon-black mb-4">No Activities Available</h2>
+            <p className="text-gray-600 mb-2">There are no activities scheduled for today.</p>
+            <p className="text-gray-600 mb-6">Check back tomorrow for your next scheduled activities.</p>
+            <button
+              onClick={() => navigate('/calendar')}
+              className="relative px-8 py-3 rounded-lg bg-pursuit-purple text-white font-proxima font-semibold overflow-hidden group active:scale-95 transition-all duration-300 hover:shadow-[0_0_0_1px_#4242EA]"
+            >
+              <span className="relative z-10 group-hover:text-pursuit-purple transition-colors duration-300">
+                View Calendar
+              </span>
+              <div 
+                className="absolute inset-0 -translate-x-full group-hover:translate-x-0 transition-transform duration-300 bg-bg-light"
+              />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="learning h-screen bg-bg-light flex flex-col">
       {/* Activity Header */}
       <ActivityHeader 
         currentDay={currentDay}
@@ -831,7 +953,22 @@ function Learning() {
 
       {/* Main Content Area - Takes remaining height */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Chat Interface */}
+        {/* Survey Interface OR Chat Interface */}
+        {isCurrentTaskSurvey() ? (
+          // Survey Interface
+          <div className="flex-1 flex flex-col relative overflow-hidden">
+            <SurveyInterface
+              taskId={tasks[currentTaskIndex]?.id}
+              dayNumber={currentDay?.day_number}
+              cohort={currentDay?.cohort}
+              surveyType={tasks[currentTaskIndex]?.feedback_slot}
+              onComplete={handleSurveyComplete}
+              isCompleted={taskCompletionMap[tasks[currentTaskIndex]?.id]?.isComplete || false}
+              isLastTask={currentTaskIndex === tasks.length - 1}
+            />
+          </div>
+        ) : (
+          // Chat Interface
         <div className="flex-1 flex flex-col relative overflow-hidden">
           {/* Messages Area - Scrollable with proper spacing */}
           <div className="flex-1 overflow-y-auto py-8 px-6" style={{ paddingBottom: '180px' }}>
@@ -1020,9 +1157,10 @@ function Learning() {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Deliverable Sidebar */}
-        {tasks[currentTaskIndex] && (
+        {/* Deliverable Sidebar - Only show for non-survey tasks */}
+        {tasks[currentTaskIndex] && !isCurrentTaskSurvey() && (
           <DeliverablePanel
             task={tasks[currentTaskIndex]}
             currentSubmission={taskSubmissions[tasks[currentTaskIndex].id]}
@@ -1033,33 +1171,38 @@ function Learning() {
         )}
       </div>
 
-      {/* Workshop Lock Banner */}
-      {workshopInfo?.isLocked && (
-        <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mx-6 mt-4">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">🔒</div>
-            <div>
-              <h3 className="font-bold text-yellow-800">Workshop Content Locked</h3>
-              <p className="text-yellow-700">
-                Tasks will be available on{' '}
-                <strong>
-                  {new Date(workshopInfo.startDate).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    timeZone: 'America/New_York'
-                  })}
-                </strong>
-                {workshopInfo.daysUntilStart > 0 && (
-                  <span> ({workshopInfo.daysUntilStart} {workshopInfo.daysUntilStart === 1 ? 'day' : 'days'} from now)</span>
-                )}
-              </p>
+          {/* Workshop Lock Banner */}
+          {workshopInfo?.isLocked && (
+            <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mx-6 mt-4">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">🔒</div>
+                <div>
+                  <h3 className="font-bold text-yellow-800">Workshop Content Locked</h3>
+                  <p className="text-yellow-700">
+                    Tasks will be available on{' '}
+                    <strong>
+                      {new Date(workshopInfo.startDate).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        timeZone: 'America/New_York'
+                      })}
+                    </strong>
+                    {workshopInfo.daysUntilStart > 0 && (
+                      <span> ({workshopInfo.daysUntilStart} {workshopInfo.daysUntilStart === 1 ? 'day' : 'days'} from now)</span>
+                    )}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
-    </div>
+      
+      {/* Loading Curtain */}
+      <LoadingCurtain isLoading={isPageLoading} />
+    </>
   );
 }
 

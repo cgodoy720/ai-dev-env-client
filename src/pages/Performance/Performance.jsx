@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import LoadingCurtain from '../../components/LoadingCurtain/LoadingCurtain';
 import AttendanceCalendar from './components/AttendanceCalendar';
 import FeedbackInbox from './components/FeedbackInbox';
 import { fetchUserAttendance } from '../../utils/attendanceService';
@@ -160,16 +161,7 @@ const Performance = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-10 h-10 border-4 border-muted border-t-primary rounded-full animate-spin"></div>
-        <p className="text-muted-foreground text-sm">Loading your performance data...</p>
-      </div>
-    );
-  }
-
-  if (error) {
+  if (error && !loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
         <h2 className="text-destructive text-xl font-semibold">Error Loading Performance Data</h2>
@@ -245,6 +237,9 @@ const Performance = () => {
           />
         </div>
       </div>
+      
+      {/* Loading Curtain */}
+      <LoadingCurtain isLoading={loading} />
     </div>
   );
 };
