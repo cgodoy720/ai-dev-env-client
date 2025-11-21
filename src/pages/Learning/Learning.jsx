@@ -18,6 +18,8 @@ import PeerFeedbackForm from '../../components/PeerFeedbackForm';
 import TaskSubmission from '../../components/TaskSubmission/TaskSubmission';
 import AnalysisModal from '../../components/AnalysisModal/AnalysisModal';
 import SurveyInterface from '../../components/SurveyInterface/SurveyInterface';
+import AssessmentInterface from '../../components/AssessmentInterface/AssessmentInterface';
+import BreakInterface from '../../components/BreakInterface/BreakInterface';
 import DeliverablePanel from './components/DeliverablePanel/DeliverablePanel';
 import TaskCompletionBar from '../../components/TaskCompletionBar/TaskCompletionBar';
 
@@ -194,6 +196,7 @@ function Learning() {
                     duration_minutes: task.duration_minutes,
                     deliverable_type: task.deliverable_type,
                     deliverable: task.deliverable,
+                    deliverable_schema: task.deliverable_schema,
                     thread_id: task.thread_id,
                     intro: task.intro,
                     questions: task.questions,
@@ -202,6 +205,7 @@ function Learning() {
                     conversation_model: task.conversation_model,
                     persona: task.persona,
                     feedback_slot: task.feedback_slot, // Include feedback_slot for survey detection
+                    assessment_id: task.assessment_id, // Include assessment_id for assessment detection
                     start_time: block.start_time,
                     end_time: block.end_time,
                     category: block.block_category // Use block_category from backend
@@ -308,6 +312,22 @@ function Learning() {
                         
     if (isTaskSurvey) {
       console.log(`Task ${task.id} is a survey (${task.feedback_slot}), skipping conversation load`);
+      setIsAiThinking(false);
+      return;
+    }
+
+    // If this is an assessment task, don't load conversation - assessment will handle itself
+    const isTaskAssessment = task?.task_type === 'assessment';
+    if (isTaskAssessment) {
+      console.log(`Task ${task.id} is an assessment, skipping conversation load`);
+      setIsAiThinking(false);
+      return;
+    }
+
+    // If this is a break task, don't load conversation - break interface will handle itself
+    const isTaskBreak = task?.task_type === 'break';
+    if (isTaskBreak) {
+      console.log(`Task ${task.id} is a break, skipping conversation load`);
       setIsAiThinking(false);
       return;
     }
@@ -544,8 +564,16 @@ function Learning() {
       setCurrentTaskIndex(taskIndex);
     }
     
-    // Load conversation for this task
-    await loadTaskConversation(task);
+    // Check if this is an assessment task
+    const isTaskAssessment = task?.task_type === 'assessment';
+    
+    if (isTaskAssessment) {
+      // For assessment tasks, check completion status (AssessmentInterface will load itself)
+      await checkTaskCompletion(task.id);
+    } else {
+      // For regular tasks, load conversation (which will check completion)
+      await loadTaskConversation(task);
+    }
   };
 
   const loadTaskIntro = async (task) => {
@@ -584,12 +612,23 @@ function Learning() {
   const handleTaskChange = async (newTaskIndex) => {
     if (newTaskIndex === currentTaskIndex) return;
     
+    // Reset completion state when switching tasks
+    setIsTaskComplete(false);
+    
     setCurrentTaskIndex(newTaskIndex);
     
     const newTask = tasks[newTaskIndex];
     
-    // Load conversation for the new task
-    await loadTaskConversation(newTask);
+    // Check if this is an assessment task
+    const isTaskAssessment = newTask?.task_type === 'assessment';
+    
+    if (isTaskAssessment) {
+      // For assessment tasks, check completion status immediately
+      await checkTaskCompletion(newTask.id);
+    } else {
+      // For regular tasks, load conversation (which will check completion)
+      await loadTaskConversation(newTask);
+    }
   };
 
   const handleSendMessage = async (messageContent, modelFromTextarea) => {
@@ -828,6 +867,30 @@ function Learning() {
     return isSurvey;
   };
 
+  // Check if current task is an assessment
+  const isCurrentTaskAssessment = () => {
+    const currentTask = tasks[currentTaskIndex];
+    
+    if (!currentTask) {
+      return false;
+    }
+    
+    // Assessment detection based on task_type
+    return currentTask?.task_type === 'assessment';
+  };
+
+  // Check if current task is a break
+  const isCurrentTaskBreak = () => {
+    const currentTask = tasks[currentTaskIndex];
+    
+    if (!currentTask) {
+      return false;
+    }
+    
+    // Break detection based on task_type
+    return currentTask?.task_type === 'break';
+  };
+
   // Handle survey completion
   const handleSurveyComplete = async () => {
     const currentTask = tasks[currentTaskIndex];
@@ -890,6 +953,59 @@ function Learning() {
     }
   };
 
+  // Handle assessment completion
+  const handleAssessmentComplete = async () => {
+    const currentTask = tasks[currentTaskIndex];
+    
+    if (!currentTask?.id) {
+      toast.error("Unable to proceed - current task not found");
+      return;
+    }
+    
+    try {
+      // Mark current task as complete
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/learning/complete-task/${currentTask.id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            notes: 'Assessment completed'
+          }),
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to mark task as complete');
+      }
+      
+      console.log('✅ Assessment task marked as complete');
+      
+      // Update both local state and taskCompletionMap (single update)
+      setIsTaskComplete(true);
+      setTaskCompletionMap(prev => ({
+        ...prev,
+        [currentTask.id]: {
+          ...prev[currentTask.id],
+          isComplete: true,
+          reason: 'Assessment completed'
+        }
+      }));
+      
+      // Refresh completion status from backend to ensure consistency
+      await checkTaskCompletion(currentTask.id);
+      
+      // NO AUTO-NAVIGATION - let user click "Next Exercise" manually
+      
+    } catch (error) {
+      console.error('Error marking assessment task complete:', error);
+      toast.error("Failed to mark task complete. Please try again.");
+    }
+  };
+
   // Show daily overview first
   if (showDailyOverview) {
     // Determine if this day is in the past by comparing dates
@@ -912,6 +1028,8 @@ function Learning() {
           taskCompletionMap={taskCompletionMap}
           isPastDay={isPastDay}
           onStartActivity={handleStartActivity}
+          isPageLoading={isPageLoading}
+          navigate={navigate}
         />
         {/* Loading Curtain */}
         <LoadingCurtain isLoading={isPageLoading} />
@@ -953,7 +1071,7 @@ function Learning() {
 
       {/* Main Content Area - Takes remaining height */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Survey Interface OR Chat Interface */}
+        {/* Survey Interface OR Assessment Interface OR Break Interface OR Chat Interface */}
         {isCurrentTaskSurvey() ? (
           // Survey Interface
           <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -965,6 +1083,39 @@ function Learning() {
               onComplete={handleSurveyComplete}
               isCompleted={taskCompletionMap[tasks[currentTaskIndex]?.id]?.isComplete || false}
               isLastTask={currentTaskIndex === tasks.length - 1}
+            />
+          </div>
+        ) : isCurrentTaskAssessment() ? (
+          // Assessment Interface
+          <div className="flex-1 flex flex-col relative overflow-hidden">
+            <AssessmentInterface
+              taskId={tasks[currentTaskIndex]?.id}
+              assessmentId={tasks[currentTaskIndex]?.assessment_id}
+              dayNumber={currentDay?.day_number}
+              cohort={currentDay?.cohort}
+              onComplete={handleAssessmentComplete}
+              isCompleted={taskCompletionMap[tasks[currentTaskIndex]?.id]?.isComplete || false}
+              isLastTask={currentTaskIndex === tasks.length - 1}
+            />
+            
+            {/* Assessment Task Completion Bar - Same as chat interface */}
+            <div className="absolute bottom-6 left-0 right-0 px-6 z-10 pointer-events-none">
+              <div className="max-w-2xl mx-auto pointer-events-auto">
+                {(isTaskComplete || taskCompletionMap[tasks[currentTaskIndex]?.id]?.isComplete) && (
+                  <TaskCompletionBar
+                    onNextExercise={handleNextExercise}
+                    onAiFeedback={handleAiFeedback}
+                    isLastTask={currentTaskIndex === tasks.length - 1}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        ) : isCurrentTaskBreak() ? (
+          // Break Interface
+          <div className="flex-1 flex flex-col relative overflow-hidden">
+            <BreakInterface
+              taskTitle={tasks[currentTaskIndex]?.task_title}
             />
           </div>
         ) : (
@@ -1139,7 +1290,7 @@ function Learning() {
           {/* Chat Input OR Task Completion Bar - Absolute positioned at bottom */}
           <div className="absolute bottom-6 left-0 right-0 px-6 z-10 pointer-events-none">
             <div className="max-w-2xl mx-auto pointer-events-auto">
-              {isTaskComplete ? (
+              {(isTaskComplete || taskCompletionMap[tasks[currentTaskIndex]?.id]?.isComplete) ? (
                 <TaskCompletionBar
                   onNextExercise={handleNextExercise}
                   onAiFeedback={handleAiFeedback}
@@ -1159,8 +1310,8 @@ function Learning() {
         </div>
         )}
 
-        {/* Deliverable Sidebar - Only show for non-survey tasks */}
-        {tasks[currentTaskIndex] && !isCurrentTaskSurvey() && (
+        {/* Deliverable Sidebar - Only show for non-survey, non-assessment, and non-break tasks */}
+        {tasks[currentTaskIndex] && !isCurrentTaskSurvey() && !isCurrentTaskAssessment() && !isCurrentTaskBreak() && (
           <DeliverablePanel
             task={tasks[currentTaskIndex]}
             currentSubmission={taskSubmissions[tasks[currentTaskIndex].id]}

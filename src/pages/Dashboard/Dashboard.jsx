@@ -204,7 +204,7 @@ function Dashboard() {
     }
     
     // Phase 1: Slide out old cards
-    const slideOutDirection = direction === 'prev' ? 'out-left' : 'out-right';
+    const slideOutDirection = direction === 'prev' ? 'out-right' : 'out-left';
     setSlideDirection(slideOutDirection);
     
     // Wait for slide-out animation
@@ -224,7 +224,7 @@ function Dashboard() {
     }
     
     // Phase 3: Slide in new cards from opposite direction
-    const slideInDirection = direction === 'prev' ? 'in-from-right' : 'in-from-left';
+    const slideInDirection = direction === 'prev' ? 'in-from-left' : 'in-from-right';
     setSlideDirection(slideInDirection);
     
     // Reset after slide-in completes
@@ -575,7 +575,9 @@ function Dashboard() {
                 onValueChange={(val) => {
                   const targetWeek = parseInt(val);
                   if (targetWeek !== currentWeek && !slideDirection) {
-                    setSlideDirection(targetWeek > currentWeek ? 'out-right' : 'out-left');
+                    // Future week: slide out LEFT, slide in from RIGHT
+                    // Past week: slide out RIGHT, slide in from LEFT
+                    setSlideDirection(targetWeek > currentWeek ? 'out-left' : 'out-right');
                     setTimeout(() => {
                       setCurrentWeek(targetWeek);
                       const newWeekData = allWeeksData.find(w => w.weekNumber === targetWeek);
@@ -629,8 +631,8 @@ function Dashboard() {
               const dayIsPast = isDatePast(day.day_date);
               const showCheckbox = dayIsPast && !dayIsToday;
               
-              // For slide-out-right and slide-in-from-left (next week flow), reverse the stagger
-              // so the animation flows from right to left
+              // For future weeks (going forward): out-left and in-from-right flow left-to-right
+              // For past weeks (going back): out-right and in-from-left flow right-to-left (reversed)
               const isRightToLeft = slideDirection === 'out-right' || slideDirection === 'in-from-left';
               const cardCount = weekData.length;
               const delayIndex = isRightToLeft ? (cardCount - 1 - index) : index;
@@ -684,26 +686,36 @@ function Dashboard() {
                           const completionStatus = taskCompletionMap[task.id];
                           const isComplete = completionStatus?.isComplete || false;
                           const showTaskCheckbox = dayIsPast && !dayIsToday;
+                          const isBreakTask = task.task_type === 'break';
                           
                           return (
                             <div key={task.id}>
                               <div className="dashboard__day-activity">
-                                {/* Task Checkbox - Purple (complete) or Pink (incomplete) */}
-                                {showTaskCheckbox && (
+                                {/* Task Checkbox - Purple (complete), Pink (incomplete with deliverable), or White circle (incomplete without deliverable) */}
+                                {/* Hide checkbox for break tasks but add spacer to maintain alignment */}
+                                {showTaskCheckbox && !isBreakTask && (
                                   <div className={`dashboard__task-checkbox ${
-                                    isComplete ? 'dashboard__task-checkbox--complete' : 'dashboard__task-checkbox--incomplete'
+                                    isComplete 
+                                      ? 'dashboard__task-checkbox--complete' 
+                                      : completionStatus?.requiresDeliverable 
+                                        ? 'dashboard__task-checkbox--incomplete' 
+                                        : 'dashboard__task-checkbox--empty'
                                   }`}>
                                     {isComplete ? (
                                       <svg viewBox="0 0 14 14" className="dashboard__task-checkbox-check">
                                         <polyline points="2.5,6 5.5,9 11.5,3" />
                                       </svg>
-                                    ) : (
+                                    ) : completionStatus?.requiresDeliverable ? (
                                       <svg viewBox="0 0 8 8" className="dashboard__task-checkbox-x">
                                         <line x1="1" y1="1" x2="7" y2="7" />
                                         <line x1="7" y1="1" x2="1" y2="7" />
                                       </svg>
-                                    )}
+                                    ) : null}
                                   </div>
+                                )}
+                                {/* Empty spacer for break tasks to maintain alignment */}
+                                {showTaskCheckbox && isBreakTask && (
+                                  <div className="dashboard__task-checkbox" style={{ visibility: 'hidden' }} />
                                 )}
                                 
                                 <div className="dashboard__day-activity-content">
@@ -826,7 +838,9 @@ function Dashboard() {
               onValueChange={(val) => {
                 const targetWeek = parseInt(val);
                 if (targetWeek !== currentWeek && !slideDirection) {
-                  setSlideDirection(targetWeek > currentWeek ? 'out-right' : 'out-left');
+                  // Future week: slide out LEFT, slide in from RIGHT
+                  // Past week: slide out RIGHT, slide in from LEFT
+                  setSlideDirection(targetWeek > currentWeek ? 'out-left' : 'out-right');
                   setTimeout(() => {
                     setCurrentWeek(targetWeek);
                     // Update level for mobile dropdown as well

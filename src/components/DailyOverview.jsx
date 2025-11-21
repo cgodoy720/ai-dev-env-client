@@ -2,14 +2,35 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 
-const DailyOverview = ({ currentDay, tasks, taskCompletionMap = {}, isPastDay = false, onStartActivity }) => {
+const DailyOverview = ({ currentDay, tasks, taskCompletionMap = {}, isPastDay = false, onStartActivity, isPageLoading = false, navigate }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   
+  // If still loading, return null - LoadingCurtain handles the visual loading state
+  if (isPageLoading) {
+    return null;
+  }
+  
+  // If loading is complete but there are no activities, show the "No Activities Available" message
   if (!currentDay || !tasks || tasks.length === 0) {
     return (
       <div className="min-h-screen bg-bg-light flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-carbon-black mb-4">Loading today's activities...</h2>
+          <h2 className="text-2xl font-bold text-carbon-black mb-4">No Activities Available</h2>
+          <p className="text-gray-600 mb-2">There are no activities scheduled for today.</p>
+          <p className="text-gray-600 mb-6">Check back tomorrow for your next scheduled activities.</p>
+          {navigate && (
+            <button
+              onClick={() => navigate('/calendar')}
+              className="relative px-8 py-3 rounded-lg bg-pursuit-purple text-white font-proxima font-semibold overflow-hidden group active:scale-95 transition-all duration-300 hover:shadow-[0_0_0_1px_#4242EA]"
+            >
+              <span className="relative z-10 group-hover:text-pursuit-purple transition-colors duration-300">
+                View Calendar
+              </span>
+              <div 
+                className="absolute inset-0 -translate-x-full group-hover:translate-x-0 transition-transform duration-300 bg-bg-light"
+              />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -100,12 +121,17 @@ const DailyOverview = ({ currentDay, tasks, taskCompletionMap = {}, isPastDay = 
             {/* Activities List - Circles aligned directly under header with dotted dividers */}
             <div className="mb-4">
             {tasks.map((task, index) => {
-                const completed = isTaskCompleted(task.id);
+                const completionStatus = taskCompletionMap[task.id];
+                const completed = completionStatus?.isComplete || false;
+                const requiresDeliverable = completionStatus?.requiresDeliverable || false;
+                const isBreakTask = task.task_type === 'break';
                 
                 return (
                 <div key={task.id}>
                   <div className="flex items-start gap-2 py-2">
-                    {/* Task Checkbox - Three states based on completion and day type */}
+                    {/* Task Checkbox - Three states based on completion and deliverable requirement */}
+                    {/* Hide checkbox for break tasks */}
+                    {!isBreakTask ? (
                     <div 
                       className="flex-shrink-0 mt-[3px]"
                       style={{
@@ -115,15 +141,15 @@ const DailyOverview = ({ currentDay, tasks, taskCompletionMap = {}, isPastDay = 
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        // Completed: Purple | Incomplete Past Day: Pink | Incomplete Current Day: White
+                        // Completed: Purple | Incomplete Past Day with Deliverable: Pink | Incomplete (no deliverable or current day): White
                         background: completed 
                           ? 'var(--color-pursuit-purple)' 
-                          : isPastDay 
+                          : (isPastDay && requiresDeliverable)
                             ? 'var(--color-mastery-pink)' 
                             : 'white',
                         border: completed 
                           ? '1px solid var(--color-pursuit-purple)' 
-                          : isPastDay 
+                          : (isPastDay && requiresDeliverable)
                             ? '1px solid var(--color-mastery-pink)' 
                             : '1px solid white'
                       }}
@@ -142,8 +168,8 @@ const DailyOverview = ({ currentDay, tasks, taskCompletionMap = {}, isPastDay = 
                         }}>
                           <polyline points="2.5,6 5.5,9 11.5,3" />
                         </svg>
-                      ) : isPastDay ? (
-                        // Pink X for incomplete past day tasks
+                      ) : (isPastDay && requiresDeliverable) ? (
+                        // Pink X for incomplete past day tasks WITH deliverables
                         <svg viewBox="0 0 8 8" style={{
                           width: '8px',
                           height: '8px',
@@ -154,8 +180,12 @@ const DailyOverview = ({ currentDay, tasks, taskCompletionMap = {}, isPastDay = 
                           <line x1="1" y1="1" x2="7" y2="7" />
                           <line x1="7" y1="1" x2="1" y2="7" />
                         </svg>
-                      ) : null /* White circle with no icon for current day incomplete tasks */}
+                      ) : null /* White circle with no icon for incomplete tasks without deliverables */}
                     </div>
+                    ) : (
+                      // Empty spacer for break tasks to maintain alignment
+                      <div className="flex-shrink-0" style={{ width: '14px' }} />
+                    )}
                     <span className="text-base leading-[18px] font-proxima font-normal text-carbon-black flex-1">
                       {task.task_title || `Activity ${index + 1}`}
                     </span>
