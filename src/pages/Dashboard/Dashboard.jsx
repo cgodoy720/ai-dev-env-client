@@ -509,8 +509,8 @@ function Dashboard() {
             {/* Vertical Divider */}
             <div className="dashboard__vertical-divider"></div>
 
-            {/* Upcoming Section */}
-            <div className="dashboard__upcoming">
+            {/* Upcoming Section - Hidden until events are available */}
+            <div className="dashboard__upcoming" style={{ visibility: 'hidden' }}>
               <h2 className="dashboard__section-title">Upcoming</h2>
               <div className="dashboard__upcoming-list">
                 {upcomingEvents.map((event, index) => (
@@ -629,6 +629,7 @@ function Dashboard() {
             {weekData.map((day, index) => {
               const dayIsToday = isDateToday(day.day_date);
               const dayIsPast = isDatePast(day.day_date);
+              const dayIsFuture = !dayIsToday && !dayIsPast;
               const showCheckbox = dayIsPast && !dayIsToday;
               
               // For future weeks (going forward): out-left and in-from-right flow left-to-right
@@ -726,11 +727,21 @@ function Dashboard() {
                     <button 
                       className={`dashboard__deliverable-link ${
                         task.hasSubmission ? 'dashboard__deliverable-link--submitted' : 'dashboard__deliverable-link--pending'
-                      }`}
-                      onClick={() => handleNavigateToTask(day.id, task.id)}
+                      } ${dayIsFuture ? 'dashboard__deliverable-link--disabled' : ''}`}
+                      onClick={() => {
+                        if (!dayIsFuture) {
+                          handleNavigateToTask(day.id, task.id);
+                        }
+                      }}
+                      disabled={dayIsFuture}
                     >
                       {task.hasSubmission ? (
-                        <>✓ {task.deliverable_type.charAt(0).toUpperCase() + task.deliverable_type.slice(1)} Submitted</>
+                        <>
+                          <svg viewBox="0 0 14 14" className="inline-block w-3 h-3 mr-1 align-middle" style={{ marginTop: '-2px' }}>
+                            <polyline points="2.5,6 5.5,9 11.5,3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          {task.deliverable_type.charAt(0).toUpperCase() + task.deliverable_type.slice(1)} Submitted
+                        </>
                       ) : (
                         `Submit ${task.deliverable_type}`
                       )}
@@ -954,8 +965,8 @@ function Dashboard() {
           {/* Divider 3 */}
           <div className="dashboard__mobile-divider-3" />
 
-          {/* Upcoming Section */}
-          <div className="dashboard__mobile-upcoming">
+          {/* Upcoming Section - Hidden until events are available */}
+          <div className="dashboard__mobile-upcoming" style={{ visibility: 'hidden' }}>
             <h2 className="dashboard__mobile-section-title">Upcoming</h2>
             <div className="dashboard__mobile-upcoming-list">
               {upcomingEvents.map((event, index) => (

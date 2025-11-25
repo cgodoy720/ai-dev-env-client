@@ -12,6 +12,7 @@ import GPTTopBar from './components/GPTTopBar';
 import ChatTray from './components/ChatTray';
 import MessageBubble from './components/MessageBubble';
 import ProcessingOverlay from './components/ProcessingOverlay';
+import ArrowButton from '../../components/ArrowButton/ArrowButton';
 
 // Shadcn UI Components
 import {
@@ -102,6 +103,7 @@ function GPT() {
   const summaryUrl = searchParams.get('summaryUrl');
   const summaryTitle = searchParams.get('summaryTitle'); 
   const summaryData = searchParams.get('summaryData');
+  const waitingForResponse = searchParams.get('waitingForResponse') === 'true';
 
   // Cleanup: abort any pending requests when component unmounts
   useEffect(() => {
@@ -156,6 +158,17 @@ function GPT() {
     }
   }, [summaryUrl, summaryTitle, summaryData, searchParams, setSearchParams, threadIdFromUrl]);
 
+  // Handle waitingForResponse parameter - show preloader immediately
+  useEffect(() => {
+    if (waitingForResponse) {
+      setIsAiThinking(true);
+      // Clear the URL parameter
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('waitingForResponse');
+      setSearchParams(newSearchParams, { replace: true });
+    }
+  }, [waitingForResponse, searchParams, setSearchParams]);
+
   // Handle threadId URL parameter
   useEffect(() => {
     if (threadIdFromUrl && threads.length > 0) {
@@ -190,6 +203,29 @@ function GPT() {
     }
   }, [activeThread, token]);
 
+  // Poll for new messages when waiting for AI response
+  useEffect(() => {
+    if (!isAiThinking || !activeThread || !token) return;
+
+    let pollCount = 0;
+    const maxPolls = 30; // Stop polling after 60 seconds (30 * 2s)
+
+    const pollInterval = setInterval(() => {
+      pollCount++;
+      if (pollCount >= maxPolls) {
+        clearInterval(pollInterval);
+        setIsAiThinking(false); // Stop showing preloader after timeout
+        return;
+      }
+      
+      // Fetch messages to check if AI has responded (pass isPolling=true to prevent clearing messages)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      fetchMessages(activeThread, true);
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [isAiThinking, activeThread, token]);
+
   // Clear summary data when switching to a thread without summary
   useEffect(() => {
     if (activeThread && summaryThreadId && String(activeThread) !== String(summaryThreadId)) {
@@ -205,6 +241,31 @@ function GPT() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Auto-focus input when messages load after thread selection
+  useEffect(() => {
+    if (!isLoading && !isInitialLoad && activeThread && messages.length > 0 && textareaRef.current && !isInactiveUser) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 200);
+    }
+  }, [isLoading, isInitialLoad, activeThread, messages.length, isInactiveUser]);
+
+  // Auto-focus input when AI response arrives
+  useEffect(() => {
+    if (messages.length > 0 && !isAiThinking && !isSending && textareaRef.current && !isInactiveUser) {
+      const lastMessage = messages[messages.length - 1];
+      const lastMessageRole = lastMessage.message_role || lastMessage.role;
+      // Focus when last message is from AI/assistant
+      if (lastMessageRole === 'assistant' || lastMessageRole === 'ai') {
+        // Small delay to ensure DOM is ready and user can see the response
+        setTimeout(() => {
+          textareaRef.current?.focus();
+        }, 300);
+      }
+    }
+  }, [messages, isAiThinking, isSending, isInactiveUser]);
 
   // Auto-resize textarea based on content
   const handleTextareaResize = () => {
@@ -269,27 +330,31 @@ function GPT() {
     }
   };
 
-  const fetchMessages = async (threadId) => {
+  const fetchMessages = async (threadId, isPolling = false) => {
     // Abort any pending fetch messages request
     if (fetchMessagesAbortControllerRef.current) {
       fetchMessagesAbortControllerRef.current.abort();
     }
     
     // CRITICAL: Also abort any pending send message request when switching threads
-    if (abortControllerRef.current) {
+    if (abortControllerRef.current && !isPolling) {
       abortControllerRef.current.abort();
     }
     
-    // Reset AI thinking state since we're switching contexts
+    // Only reset AI thinking state when switching threads (not when polling)
+    if (!isPolling) {
     setIsAiThinking(false);
     setIsSending(false);
+    }
     
     // Create new AbortController for this request
     const abortController = new AbortController();
     fetchMessagesAbortControllerRef.current = abortController;
     
-    // Clear messages immediately to prevent showing stale content
+    // Only clear messages when switching threads, not when polling
+    if (!isPolling) {
     setMessages([]);
+    }
     
     try {
       setIsLoading(true);
@@ -320,8 +385,38 @@ function GPT() {
         return message;
       });
       
+      // When polling, only update messages if they've actually changed (to prevent flashing)
+      if (isPolling) {
+        // Compare message count and last message ID to avoid unnecessary updates
+        const currentLastMessageId = messages.length > 0 ? getMessageId(messages[messages.length - 1]) : null;
+        const newLastMessageId = messagesArray.length > 0 ? getMessageId(messagesArray[messagesArray.length - 1]) : null;
+        
+        // Only update if messages actually changed
+        if (currentLastMessageId !== newLastMessageId || messages.length !== messagesArray.length) {
+          setMessages(messagesArray);
+          
+          // Update isAiThinking based on last message role
+          if (messagesArray.length > 0) {
+            const lastMessage = messagesArray[messagesArray.length - 1];
+            const lastMessageRole = getMessageRole(lastMessage);
+            setIsAiThinking(lastMessageRole === 'user');
+          }
+        }
+      } else {
       setMessages(messagesArray);
       setError('');
+        
+        // Check if we're waiting for an AI response (last message is from user)
+        if (messagesArray.length > 0) {
+          const lastMessage = messagesArray[messagesArray.length - 1];
+          const lastMessageRole = getMessageRole(lastMessage);
+          setIsAiThinking(lastMessageRole === 'user');
+        }
+      }
+      
+      if (!isPolling) {
+        setError('');
+      }
     } catch (err) {
       // Ignore abort errors
       if (err.name === 'AbortError') {
@@ -845,6 +940,10 @@ function GPT() {
         <div className="relative">
           <div className="flex items-center justify-center bg-white rounded-lg h-[32px] w-[672px] px-[10px] py-1">
             <div className="flex items-center justify-between w-full px-[7px]">
+              <svg className="w-5 h-5 text-divider mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" strokeWidth="1.5" />
+                <path d="M21 21l-4.35-4.35" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
               <input
                 type="text"
                 placeholder="Browse chat history or search by keyword"
@@ -856,17 +955,13 @@ function GPT() {
               <button
                 onClick={handleCreateThread}
                 disabled={isInactiveUser || isLoading}
-                className="ml-2 text-pursuit-purple hover:text-pursuit-purple/80 disabled:opacity-50"
+                className="ml-2 text-gray-400 hover:text-pursuit-purple disabled:opacity-50 transition-colors"
                 title="New conversation"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 4v16m8-8H4" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 4v16m8-8H4" strokeWidth="1" strokeLinecap="round" />
                 </svg>
               </button>
-              <svg className="w-6 h-6 text-carbon-black ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8" strokeWidth="1" />
-                <path d="M21 21l-4.35-4.35" strokeWidth="1" strokeLinecap="round" />
-              </svg>
             </div>
           </div>
           
@@ -1195,8 +1290,8 @@ function GPT() {
                         disabled={isInactiveUser || isProcessingUpload}
                         className="w-[30px] h-[30px] bg-bg-light rounded-lg flex items-center justify-center disabled:opacity-50"
                       >
-                        <svg className="w-[14px] h-[14px] text-carbon-black" fill="none" stroke="currentColor" viewBox="0 0 14 14">
-                          <path d="M7 11V3M7 3L4 6M7 3L10 6M1 13H13" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg className="w-[14px] h-[14px] text-carbon-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </button>
                         </DropdownMenuTrigger>
@@ -1225,15 +1320,19 @@ function GPT() {
                       </DropdownMenu>
                       
                       {/* Send Button */}
-                      <button
+                      <ArrowButton
                         onClick={handleSendMessage}
                         disabled={!newMessage.trim() || isInactiveUser || isSending || isLoading}
-                        className="w-[30px] h-[30px] bg-pursuit-purple rounded-lg flex items-center justify-center disabled:opacity-50 transition-opacity"
-                      >
-                        <svg className="w-[14px] h-[14px] text-bg-light" fill="none" stroke="currentColor" viewBox="0 0 14 14">
-                          <path d="M7 4L10 7L7 10M3 7H10" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
+                        size="lg"
+                        rotation={-90}
+                        borderColor="#4242EA"
+                        backgroundColor="#4242EA"
+                        arrowColor="white"
+                        hoverBackgroundColor="white"
+                        hoverArrowColor="#4242EA"
+                        className="w-[30px] h-[30px] disabled:opacity-50"
+                        strokeWidth={1}
+                      />
                     </div>
                   </div>
                 </div>
