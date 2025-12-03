@@ -247,7 +247,7 @@ function App() {
             </AdminRoute>
           </Layout>
         } />
-        <Route path="/attendance-management" element={
+        <Route path="/admin-attendance-dashboard" element={
           <Layout>
             <AdminRoute>
               <AdminAttendanceDashboard />
@@ -351,7 +351,9 @@ function App() {
         } />
         
         <Route path="/volunteer-feedback" element={
-          <VolunteerFeedback />
+          <Layout>
+            <VolunteerFeedback />
+          </Layout>
         } />
 
         {/* Form Builder routes (Admin/Staff only) */}

@@ -324,6 +324,17 @@ function Dashboard() {
     return date < today;
   };
 
+  // Cutoff date for showing incomplete task indicators (12/1/2025)
+  const TASK_TRACKING_CUTOFF_DATE = new Date('2025-12-01');
+
+  // Check if date is on or after the cutoff date for task tracking
+  const isDateAfterCutoff = (dateString) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    date.setHours(0, 0, 0, 0);
+    return date >= TASK_TRACKING_CUTOFF_DATE;
+  };
+
   // Navigate to volunteer feedback
   const navigateToVolunteerFeedback = useCallback(() => {
     navigate('/volunteer-feedback');
@@ -440,10 +451,14 @@ function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={navigateToVolunteerFeedback}>
-              <BookOpen className="h-4 w-4 mr-2" />
-              Go to Volunteer Feedback
-            </Button>
+            <button 
+              className="group relative overflow-hidden inline-flex justify-center items-center px-6 py-2.5 bg-pursuit-purple border border-pursuit-purple rounded-full font-normal text-base leading-5 text-white cursor-pointer transition-colors duration-300"
+              onClick={navigateToVolunteerFeedback}
+            >
+              <BookOpen className="h-4 w-4 mr-2 relative z-10 transition-colors duration-300 group-hover:text-pursuit-purple" />
+              <span className="relative z-10 transition-colors duration-300 group-hover:text-pursuit-purple">Go to Volunteer Feedback</span>
+              <div className="absolute inset-0 bg-[#EFEFEF] -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+            </button>
           </CardContent>
         </Card>
       </div>
@@ -537,7 +552,7 @@ function Dashboard() {
           <div className="dashboard__week-header items-end">
             <div className="dashboard__week-title">
               <span className="dashboard__week-label">
-                <span className="dashboard__week-level">L{currentLevel}</span>: Week {currentWeek}
+                <span className="dashboard__week-level">{currentLevel}</span>: Week {currentWeek}
               </span>
               <span 
                 className={`dashboard__week-subtitle ${
@@ -559,11 +574,11 @@ function Dashboard() {
                     ? 'bg-[#EFEFEF] border border-pursuit-purple text-pursuit-purple cursor-pointer' 
                     : 'bg-background border border-divider text-divider cursor-not-allowed opacity-100'
                 }`}
-                style={{ borderRadius: '7px' }}
+                style={{ borderRadius: '.5rem' }}
                 onClick={() => navigateToWeek('prev')}
                 disabled={currentWeek <= 1 || slideDirection !== null}
               >
-                <ChevronLeft className={`w-5 h-7 relative z-10 transition-colors duration-300 ${currentWeek > 1 ? 'group-hover:!text-white' : ''}`} strokeWidth={1} />
+                <ChevronLeft className={`w-10 h-10 relative z-10 transition-colors duration-300 ${currentWeek > 1 ? 'group-hover:!text-white' : ''}`} strokeWidth={0.8} />
                 {currentWeek > 1 && (
                   <div className="absolute inset-0 bg-pursuit-purple -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
                 )}
@@ -612,11 +627,11 @@ function Dashboard() {
                     ? 'bg-[#EFEFEF] border border-pursuit-purple text-pursuit-purple cursor-pointer' 
                     : 'bg-background border border-divider text-divider cursor-not-allowed opacity-100'
                 }`}
-                style={{ borderRadius: '7px' }}
+                style={{ borderRadius: '.5rem' }}
                 onClick={() => navigateToWeek('next')}
                 disabled={!currentDay?.week || currentWeek >= currentDay.week || slideDirection !== null}
               >
-                <ChevronRight className={`w-5 h-7 relative z-10 transition-colors duration-300 ${currentDay?.week && currentWeek < currentDay.week ? 'group-hover:!text-white' : ''}`} strokeWidth={1} />
+                <ChevronRight className={`w-10 h-10 relative z-10 transition-colors duration-300 ${currentDay?.week && currentWeek < currentDay.week ? 'group-hover:!text-white' : ''}`} strokeWidth={0.8} />
                 {currentDay?.week && currentWeek < currentDay.week && (
                   <div className="absolute inset-0 bg-pursuit-purple -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
                 )}
@@ -686,7 +701,8 @@ function Dashboard() {
                           // NEW: Use completion map for all tasks (not just deliverables)
                           const completionStatus = taskCompletionMap[task.id];
                           const isComplete = completionStatus?.isComplete || false;
-                          const showTaskCheckbox = dayIsPast && !dayIsToday;
+                          // Only show checkbox for past days on or after 11/1/2025
+                          const showTaskCheckbox = dayIsPast && !dayIsToday && isDateAfterCutoff(day.day_date);
                           const isBreakTask = task.task_type === 'break';
                           
                           return (
@@ -698,7 +714,7 @@ function Dashboard() {
                                   <div className={`dashboard__task-checkbox ${
                                     isComplete 
                                       ? 'dashboard__task-checkbox--complete' 
-                                      : completionStatus?.requiresDeliverable 
+                                      : (completionStatus?.requiresDeliverable || completionStatus?.shouldAnalyze)
                                         ? 'dashboard__task-checkbox--incomplete' 
                                         : 'dashboard__task-checkbox--empty'
                                   }`}>
@@ -706,7 +722,7 @@ function Dashboard() {
                                       <svg viewBox="0 0 14 14" className="dashboard__task-checkbox-check">
                                         <polyline points="2.5,6 5.5,9 11.5,3" />
                                       </svg>
-                                    ) : completionStatus?.requiresDeliverable ? (
+                                    ) : (completionStatus?.requiresDeliverable || completionStatus?.shouldAnalyze) ? (
                                       <svg viewBox="0 0 8 8" className="dashboard__task-checkbox-x">
                                         <line x1="1" y1="1" x2="7" y2="7" />
                                         <line x1="7" y1="1" x2="1" y2="7" />
@@ -818,7 +834,7 @@ function Dashboard() {
 
           {/* L1 Week 5 Title */}
           <div className="dashboard__mobile-week-title">
-            L{currentLevel}: Week {currentWeek} <br />
+            {currentLevel}: Week {currentWeek} <br />
             {weeklyGoal}
           </div>
 
@@ -833,11 +849,11 @@ function Dashboard() {
                   ? 'bg-pursuit-purple border border-pursuit-purple text-white cursor-pointer' 
                   : 'bg-background border border-divider text-divider cursor-not-allowed opacity-100'
               }`}
-              style={{ borderRadius: '7px' }}
+              style={{ borderRadius: '.5rem' }}
               onClick={() => navigateToWeek('prev')}
               disabled={currentWeek <= 1 || slideDirection !== null}
             >
-              <ChevronLeft className={`w-5 h-7 relative z-10 transition-colors duration-300 ${currentWeek > 1 ? 'group-hover:!text-pursuit-purple' : ''}`} strokeWidth={1} />
+              <ChevronLeft className={`w-10 h-10 relative z-10 transition-colors duration-300 ${currentWeek > 1 ? 'group-hover:!text-pursuit-purple' : ''}`} strokeWidth={0.8} />
               {currentWeek > 1 && (
                 <div className="absolute inset-0 bg-[#EFEFEF] -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
               )}
@@ -884,11 +900,11 @@ function Dashboard() {
                   ? 'bg-pursuit-purple border border-pursuit-purple text-white cursor-pointer' 
                   : 'bg-background border border-divider text-divider cursor-not-allowed opacity-100'
               }`}
-              style={{ borderRadius: '7px' }}
+              style={{ borderRadius: '.5rem' }}
               onClick={() => navigateToWeek('next')}
               disabled={!currentDay?.week || currentWeek >= currentDay.week || slideDirection !== null}
             >
-              <ChevronRight className={`w-5 h-7 relative z-10 transition-colors duration-300 ${currentDay?.week && currentWeek < currentDay.week ? 'group-hover:!text-pursuit-purple' : ''}`} strokeWidth={1} />
+              <ChevronRight className={`w-10 h-10 relative z-10 transition-colors duration-300 ${currentDay?.week && currentWeek < currentDay.week ? 'group-hover:!text-pursuit-purple' : ''}`} strokeWidth={0.8} />
               {currentDay?.week && currentWeek < currentDay.week && (
                 <div className="absolute inset-0 bg-[#EFEFEF] -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
               )}
