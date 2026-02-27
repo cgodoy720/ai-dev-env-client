@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import Swal from 'sweetalert2';
 import { formatSalary } from '../../utils/salaryFormatter';
 import LoadingCurtain from '../../components/LoadingCurtain/LoadingCurtain';
@@ -17,6 +18,7 @@ const JobApplicationsTab = lazy(() => import('./components/JobApplicationsTab/Jo
 const PRDsTab = lazy(() => import('./components/PRDsTab/PRDsTab'));
 const CeremoniesTab = lazy(() => import('./components/CeremoniesTab/CeremoniesTab'));
 const WeeklyGoalsTab = lazy(() => import('./components/WeeklyGoalsTab/WeeklyGoalsTab'));
+const EventsTab = lazy(() => import('./components/EventsTab/EventsTab'));
 
 // Import shared modals
 import BuilderDetailModal from './components/shared/BuilderDetailModal';
@@ -26,7 +28,9 @@ import CompanyDetailModal from './components/shared/CompanyDetailModal';
 import { getStageLabel, getWeekDateRange, getMilestoneInfo } from './components/shared/utils';
 
 function PathfinderAdmin() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
+  const { canAccessPage } = usePermissions();
+  const hasPathfinderAdminAccess = canAccessPage('pathfinder_admin');
   const [overview, setOverview] = useState(null);
   const [builders, setBuilders] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -330,7 +334,7 @@ function PathfinderAdmin() {
 
   // Always fetch overview data on mount and when filters change
   useEffect(() => {
-    if ((user.role === 'staff' || user.role === 'admin') && token) {
+    if (hasPathfinderAdminAccess && token) {
       const fetchOverviewData = async () => {
         setIsLoading(true);
         try {
@@ -348,11 +352,11 @@ function PathfinderAdmin() {
       
       fetchOverviewData();
     }
-  }, [token, cohortFilter, weekOffset]);
+  }, [token, cohortFilter, weekOffset, hasPathfinderAdminAccess]);
 
   // Fetch tab-specific data only when tab is activated
   useEffect(() => {
-    if ((user.role === 'staff' || user.role === 'admin') && token && view !== 'overview') {
+    if (hasPathfinderAdminAccess && token && view !== 'overview') {
       const fetchTabData = async () => {
         // Set loading state for this tab
         const tabKey = view === 'build-projects' ? 'projects' : view === 'prds' ? 'prds' : view;
@@ -395,7 +399,7 @@ function PathfinderAdmin() {
 
       fetchTabData();
     }
-  }, [token, cohortFilter, view]);
+  }, [token, cohortFilter, view, hasPathfinderAdminAccess]);
   
   // Toggle column collapse in Kanban view
   const toggleColumnCollapse = useCallback((stage) => {
@@ -1209,7 +1213,7 @@ function PathfinderAdmin() {
     }
   };
 
-  if (user.role !== 'staff' && user.role !== 'admin') {
+  if (!hasPathfinderAdminAccess) {
     return (
       <div className="w-full h-full bg-gray-50 text-gray-900 overflow-y-auto p-6">
         <div className="max-w-full mx-auto bg-white rounded-lg border border-gray-200 p-8 text-center">
@@ -1260,13 +1264,13 @@ function PathfinderAdmin() {
 
         {/* Tabs */}
         <Tabs value={view} onValueChange={setView} className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-8">
+          <TabsList className="grid w-full grid-cols-9 mb-8">
             <TabsTrigger value="overview" className="px-2 text-sm font-proxima">Overview</TabsTrigger>
             <TabsTrigger value="builders" className="px-2 text-sm font-proxima">Builders</TabsTrigger>
             <TabsTrigger value="companies" className="px-2 text-sm font-proxima">Companies</TabsTrigger>
             <TabsTrigger value="build-projects" className="px-2 text-sm font-proxima">Build Projects</TabsTrigger>
+            <TabsTrigger value="events" className="px-2 text-sm font-proxima">Events</TabsTrigger>
             <TabsTrigger value="job-applications" className="px-2 text-sm font-proxima">Job Applications</TabsTrigger>
-            <TabsTrigger value="ceremonies" className="px-2 text-sm font-proxima">Ceremonies</TabsTrigger>
             <TabsTrigger value="prds" className="relative px-2 text-sm font-proxima">
               PRDs
               {pendingApprovals.length > 0 && (
@@ -1276,6 +1280,7 @@ function PathfinderAdmin() {
               )}
             </TabsTrigger>
             <TabsTrigger value="weekly-goals" className="px-2 text-sm font-proxima">Weekly Goals</TabsTrigger>
+            <TabsTrigger value="ceremonies" className="px-2 text-sm font-proxima">Ceremonies</TabsTrigger>
           </TabsList>
 
           {/* Overview View */}
@@ -1416,6 +1421,13 @@ function PathfinderAdmin() {
                 handleDeleteGoal={handleDeleteGoal}
                 handleCancelEdit={handleCancelEdit}
               />
+            </Suspense>
+          </TabsContent>
+
+          {/* Events View */}
+          <TabsContent value="events" className="mt-0">
+            <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="text-gray-500 font-proxima">Loading Events...</div></div>}>
+              <EventsTab />
             </Suspense>
           </TabsContent>
         </Tabs>

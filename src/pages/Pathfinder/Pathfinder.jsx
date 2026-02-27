@@ -1,8 +1,11 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation, Navigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 function Pathfinder() {
   const location = useLocation();
+  const { user } = useAuth();
+  const isStaff = user?.role === 'staff' || user?.role === 'admin';
   
   // Redirect to dashboard if on /pathfinder root
   if (location.pathname === '/pathfinder' || location.pathname === '/pathfinder/') {
@@ -61,6 +64,45 @@ function Pathfinder() {
         >
           Job Tracker
         </NavLink>
+        <NavLink
+          to="/pathfinder/events"
+          className={({ isActive }) =>
+            `h-full px-6 text-base font-semibold transition-all duration-200 border-b-[3px] flex items-center ${
+              isActive
+                ? 'text-[#4242ea] border-[#4242ea] bg-[rgba(66,66,234,0.05)]'
+                : 'text-[#666666] border-transparent hover:text-[#1a1a1a] hover:bg-[rgba(66,66,234,0.05)]'
+            }`
+          }
+        >
+          EventHub
+        </NavLink>
+        <NavLink
+          to="/pathfinder/network"
+          className={({ isActive }) =>
+            `h-full px-6 text-base font-semibold transition-all duration-200 border-b-[3px] flex items-center ${
+              isActive
+                ? 'text-[#4242ea] border-[#4242ea] bg-[rgba(66,66,234,0.05)]'
+                : 'text-[#666666] border-transparent hover:text-[#1a1a1a] hover:bg-[rgba(66,66,234,0.05)]'
+            }`
+          }
+        >
+          Network
+        </NavLink>
+        {/* Jobs tab hidden for now — re-enable when ready */}
+        {isStaff && (
+          <NavLink
+            to="/pathfinder/staff-network"
+            className={({ isActive }) =>
+              `h-full px-6 text-base font-semibold transition-all duration-200 border-b-[3px] flex items-center ${
+                isActive
+                  ? 'text-[#4242ea] border-[#4242ea] bg-[rgba(66,66,234,0.05)]'
+                  : 'text-[#666666] border-transparent hover:text-[#1a1a1a] hover:bg-[rgba(66,66,234,0.05)]'
+              }`
+            }
+          >
+            Staff Inbox
+          </NavLink>
+        )}
       </nav>
 
       {/* Content Area */}
