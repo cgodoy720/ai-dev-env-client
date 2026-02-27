@@ -31,3 +31,6 @@ dist-ssr
 # Visual guides and visual-explainer tool
 /visual-guides/
 /visual-explainer/
+
+# Claude Code worktrees
+.claude/worktrees/
