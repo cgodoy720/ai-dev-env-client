@@ -37,3 +37,5 @@ dist-ssr
 
 # Local analysis files
 src/pages/PathfinderJobs/jobs-db-analysis.md
+# Claude Code worktrees
+.claude/worktrees/

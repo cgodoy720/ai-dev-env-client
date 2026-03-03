@@ -63,7 +63,6 @@ function AdminVolunteerFeedback({ embedded = false }) {
                 `${item.first_name} ${item.last_name}`.toLowerCase().includes(searchTerm)
             );
         }
-
         setFilteredFeedback(filtered);
     };
 
